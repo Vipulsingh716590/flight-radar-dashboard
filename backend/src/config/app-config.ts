@@ -18,6 +18,8 @@ export interface AuthConfig {
   adminEmail: string | null;
   adminPassword: string | null;
   adminPasswordHash: string | null;
+  /** false only for local development (LOGIN_RATE_LIMIT=off); never allowed in production. */
+  loginRateLimitEnabled: boolean;
   loginMaxAttempts: number;
   loginWindowMinutes: number;
   /** Express "trust proxy" hops, so rate limiting sees real client IPs behind a proxy. */
@@ -117,6 +119,7 @@ function loadAuthConfig(env: NodeJS.ProcessEnv, production: boolean): AuthConfig
     adminEmail: env.ADMIN_EMAIL?.trim().toLowerCase() || null,
     adminPassword: env.ADMIN_PASSWORD || null,
     adminPasswordHash: env.ADMIN_PASSWORD_HASH?.trim() || null,
+    loginRateLimitEnabled: parseRateLimit(env.LOGIN_RATE_LIMIT, production),
     loginMaxAttempts: num(env.LOGIN_MAX_ATTEMPTS, 5, 1),
     loginWindowMinutes: num(env.LOGIN_WINDOW_MINUTES, 15, 1),
     trustProxyHops: num(env.TRUST_PROXY_HOPS, 0, 0),
@@ -129,4 +132,21 @@ function parseSsl(value: string | undefined): AppConfig['databaseSsl'] {
   if (mode === 'require' || mode === 'true') return 'require';
   if (mode === 'verify') return 'verify';
   throw new Error('DATABASE_SSL must be off, require or verify');
+}
+
+/**
+ * `LOGIN_RATE_LIMIT=off` removes the failed-login lockout for local work.
+ * In production it is refused outright, so a leftover setting cannot leave a
+ * public login open to unlimited password guessing.
+ */
+function parseRateLimit(value: string | undefined, production: boolean): boolean {
+  const mode = (value ?? 'on').trim().toLowerCase();
+  if (mode === 'on' || mode === 'true' || mode === '') return true;
+  if (mode === 'off' || mode === 'false') {
+    if (production) {
+      throw new Error('LOGIN_RATE_LIMIT=off is not allowed when NODE_ENV=production');
+    }
+    return false;
+  }
+  throw new Error('LOGIN_RATE_LIMIT must be on or off');
 }

@@ -62,3 +62,23 @@ describe('loadConfig: polling and proxies', () => {
     expect(config.providerOrder).toEqual(['adsbfi', 'opensky']);
   });
 });
+
+describe('loadConfig: login lockout switch', () => {
+  it('is on by default', () => {
+    expect(loadConfig({ JWT_SECRET: SECRET }).auth.loginRateLimitEnabled).toBe(true);
+  });
+
+  it('can be switched off for local development', () => {
+    expect(loadConfig({ JWT_SECRET: SECRET, LOGIN_RATE_LIMIT: 'off' }).auth.loginRateLimitEnabled).toBe(false);
+  });
+
+  it('refuses to be switched off in production', () => {
+    expect(() =>
+      loadConfig({ JWT_SECRET: SECRET, NODE_ENV: 'production', LOGIN_RATE_LIMIT: 'off' }),
+    ).toThrow(/not allowed when NODE_ENV=production/);
+  });
+
+  it('rejects an unknown value instead of guessing', () => {
+    expect(() => loadConfig({ JWT_SECRET: SECRET, LOGIN_RATE_LIMIT: 'maybe' })).toThrow(/LOGIN_RATE_LIMIT/);
+  });
+});

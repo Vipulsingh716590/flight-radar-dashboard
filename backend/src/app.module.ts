@@ -86,11 +86,19 @@ class DatabaseLifecycle implements OnModuleDestroy {
             'JWT_SECRET is not set: using a random secret, so sessions end whenever the server restarts',
           );
         }
+        // Local development can switch the lockout off; config refuses that in production.
+        const maxAttempts = auth.loginRateLimitEnabled ? auth.loginMaxAttempts : Number.MAX_SAFE_INTEGER;
+        if (!auth.loginRateLimitEnabled) {
+          new Logger('Auth').warn('Login rate limit is OFF (LOGIN_RATE_LIMIT=off): local development only');
+        }
         return new AuthService(
           users,
           new TokenService(auth.jwtSecret, auth.sessionHours * 3600),
-          new LoginRateLimiter(auth.loginMaxAttempts, windowMs),
-          new LoginRateLimiter(auth.loginMaxAttempts * EMAIL_LIMIT_FACTOR, windowMs),
+          new LoginRateLimiter(maxAttempts, windowMs),
+          new LoginRateLimiter(
+            auth.loginRateLimitEnabled ? maxAttempts * EMAIL_LIMIT_FACTOR : maxAttempts,
+            windowMs,
+          ),
           await bcrypt.hash(auth.jwtSecret.slice(0, 16), BCRYPT_COST),
         );
       },
