@@ -127,10 +127,10 @@ Render and Netlify deploy from a Git repository.
    placeholder now and correct it after step 3).
 3. Wait for the deploy and open `https://<service>.onrender.com/api/health`.
 
-Check Render's current plan list before deploying. As of writing: a free web service sleeps when
-idle (the poller stops, so history has gaps), and free databases are time-limited. A paid
-instance is needed for continuous data. `render.yaml` uses a paid instance for the API and a small
-paid database for that reason; change the `plan:` lines if Render's names differ.
+`render.yaml` uses Render's **free** plans, which is right for trying the app out. A free web
+service sleeps when idle (the poller stops, so history has gaps until the next request wakes it),
+and a free database is time-limited and deleted after that period. For continuous data change the
+two `plan:` lines to paid plans (check Render's current plan names) and redeploy.
 
 ### 3. Netlify: frontend
 

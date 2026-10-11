@@ -4,17 +4,19 @@
 # Dashboard -> New -> Blueprint -> pick this repository. Render asks for the
 # values marked `sync: false`; nothing secret is stored in this file.
 #
-# Check current plan names and limits before relying on them:
-#  - free web services sleep when idle, which stops the background poller and
-#    leaves gaps in history; use a paid instance for continuous data
-#  - free databases are time-limited by Render
+# This file uses Render's FREE plans, for testing:
+#  - a free web service sleeps when idle, which stops the background poller and
+#    leaves gaps in history (the first request wakes it, and polling resumes)
+#  - a free database is time-limited by Render and is deleted after that period
+# For continuous data switch the two `plan:` lines below to paid plans (check
+# Render's current plan names) and redeploy.
 services:
   - type: web
     name: flightradar-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
@@ -50,4 +52,4 @@ databases:
   - name: flightradar-db
     databaseName: flightradar
     user: flightradar
-    plan: basic-256mb
+    plan: free
