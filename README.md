@@ -1,0 +1,188 @@
+# Flight Radar India
+
+Live air-traffic dashboard for India: planes currently airborne over India on a live map.
+
+> **Status: all five phases built.** Live map, routes and tagging, sign-in, PostgreSQL history
+> with charts and airport boards, and container + hosting configuration. See
+> [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for what was and was not verified.
+
+## Pages
+
+| URL | Page |
+| --- | --- |
+| `/login` | Sign in |
+| `/` | **Live map**: counters, map, flight card, colour-by, airport pins |
+| `/flights` | Searchable, sortable table of every airborne flight |
+| `/insights` | Charts: traffic by hour, busiest airports, airline share |
+| `/airports`, `/airports/DEL` | Airport search and live arrivals/departures board (bookmarkable) |
+
+Header on every page: navigation, one search box for flights and airports, feed health, account.
+
+Map features worth knowing:
+
+- **Flight card** (click a plane, or pick a flight in search/table): airline, aircraft, origin and
+  destination, trip progress, altitude, speed, vertical rate. When the position does not fit the
+  callsign's route the card says so instead of drawing a progress bar.
+- **Recorded path**: the selected flight's track from the last 6 hours, from PostgreSQL history.
+- **Colour by** route type or altitude; **airport pins** (click for the board); live
+  "aircraft in view" count.
+
+## Layout
+
+```
+backend/              NestJS API: polls ADS-B feeds, filters to India, streams over SSE
+  Dockerfile          API image
+frontend/             Angular + MapLibre GL dashboard
+  Dockerfile          web image (nginx, proxies /api)
+  nginx/              nginx template, security headers, runtime config writer
+docs/DEPLOYMENT.md    deployment guide, variables, troubleshooting
+docker-compose.yml    postgres (+ api, web, caddy with profiles)
+render.yaml           Render Blueprint (API + database)
+netlify.toml          Netlify build and headers (frontend)
+run-local.cmd         one-command local start on Windows (see stop-local.ps1)
+```
+
+## Run locally
+
+Requires Node 22+ and a PostgreSQL database.
+
+```bash
+# PostgreSQL, option A: Docker
+docker compose up -d postgres
+
+# PostgreSQL, option B: no Docker - runs real PostgreSQL binaries from npm (dev only)
+cd backend && npm install && npm run db:dev      # keep this terminal open
+```
+
+```bash
+# API on http://localhost:3000 (runs migrations and seeds the admin + airports on start)
+cd backend
+cp .env.example .env     # then set JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, DATABASE_URL
+npm install
+npm run start:dev
+
+# dashboard on http://localhost:4200
+cd frontend
+npm install
+npm start
+```
+
+Open http://localhost:4200. The first data appears after the first sweep of India
+(about 30-40 seconds); after that it refreshes every ~75 seconds.
+
+Tests: `npm test` in `backend/` and `ng test --watch=false` in `frontend/`. The PostgreSQL
+integration tests only run when `TEST_DATABASE_URL` is set (they use a throw-away schema):
+
+```bash
+TEST_DATABASE_URL=postgres://flightradar:flightradar@localhost:5432/flightradar npm test
+```
+
+## Run it in containers
+
+```bash
+cp .env.example .env        # JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, POSTGRES_PASSWORD
+docker compose --profile app up -d --build        # http://localhost:8080
+docker compose --profile app --profile tls up -d --build   # public, automatic HTTPS (set DOMAIN)
+```
+
+## Deploy
+
+Two documented setups, with variables, steps, backups and troubleshooting in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md):
+
+- **One server**: Docker Compose, with Caddy for HTTPS. One origin, the simplest security model.
+- **Netlify + Render**: static frontend plus a containerised API and managed PostgreSQL
+  (`render.yaml`, `netlify.toml`). Different hosts mean a cross-site session cookie, which
+  Safari blocks; use custom domains under one parent domain for a reliable setup.
+
+Production behaviour worth knowing: the API refuses to start without `JWT_SECRET`, the session
+cookie is `Secure`, the dashboard is served with a strict Content-Security-Policy, and the browser
+learns where the API is from `/config.json` at start-up (so one build fits any host).
+
+## How it works
+
+1. `IngestService` polls on a timer (never from the browser). It tries providers in
+   `PROVIDER_ORDER` and falls back automatically when one is rate limited or failing.
+2. **adsb.fi** is queried tile by tile (~28 circles of 250 NM, one request per 1.1 s,
+   as its 1 req/s limit requires). **OpenSky** is the fallback and uses one bounding-box request.
+3. `RouteLookupService` resolves origin/destination per callsign in the background via
+   [adsbdb.com](https://www.adsbdb.com) (cached, one request at a time, only airline-style callsigns).
+   Flights are then tagged `arrival` / `departure` / `domestic` / `overflight` / `unknown`
+   using the OurAirports list of Indian airports. An unknown route is never guessed.
+4. `FlightsService` keeps only positions inside the India polygon (Natural Earth, India
+   point of view) plus a 50 km sea buffer that never extends over neighbouring land, and
+   deduplicates by ICAO24.
+5. `HistoryService` stores each cycle in PostgreSQL: one `flight_snapshots` row per flight
+   (kept `RETENTION_DAYS`, default 7) and a running average per hour in `stats_hourly` (kept
+   forever). Cycles with missing tiles, or whose routes are still being looked up, are kept out
+   of the hourly averages so a restart does not distort the charts.
+6. The latest snapshot is pushed to all browsers over `GET /api/stream` (SSE).
+7. The browser moves each plane forward from its last fix using speed and heading, so
+   markers glide between refreshes (capped at 3 minutes).
+
+## Sign-in
+
+The only account is the **seed admin** from `backend/.env` (`ADMIN_EMAIL` + `ADMIN_PASSWORD`
+or `ADMIN_PASSWORD_HASH`). There is no registration. The backend refuses to start without it.
+Generate a hash instead of keeping a plain password in the file:
+
+```bash
+node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-long-password"
+```
+
+- Session = JWT (HS256, 8 h) in an **httpOnly** cookie; JavaScript cannot read it.
+- Roles `admin` / `viewer` are enforced by the backend (`@Roles()`). The seed admin is written to
+  the `users` table on start (and updated when `.env` changes); with no registration there are
+  no viewer accounts yet.
+- Login is rate limited: 5 failures per IP and 20 per email per 15 min, then HTTP 429.
+- Every endpoint except `/api/auth/login`, `/api/auth/logout` and `/api/health` needs the cookie,
+  including the SSE stream (which also ends when the session expires).
+- Different sites for frontend and API (Netlify + Render): set `COOKIE_SAMESITE=none` (HTTPS only)
+  and `FRONTEND_ORIGIN`; behind a proxy set `TRUST_PROXY_HOPS=1`.
+
+## API
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/stream` | SSE: `snapshot` event on connect and after every refresh |
+| `GET /api/flights/live` | Latest flights as JSON |
+| `GET /api/stats/summary` | Counts + provider health |
+| `GET /api/stats/hourly?hours=24` | Average flights per hour (max 168 h) |
+| `GET /api/stats/top-airports?hours=24&limit=10` | Busiest Indian airports |
+| `GET /api/stats/airlines?hours=24&limit=8` | Airline share by distinct aircraft |
+| `GET /api/airports?search=del` | Airport search |
+| `GET /api/airports/pins` | Airports with an IATA code (map pins) |
+| `GET /api/flights/:icao24/track?hours=6` | Recorded positions of one aircraft |
+| `GET /api/airports/:code` | Live arrivals/departures board (IATA or ICAO) |
+| `POST /api/auth/login` | Public. Sets the session cookie |
+| `POST /api/auth/logout` | Public. Clears the cookie |
+| `GET /api/auth/me` | Current user (used by the SPA on load) |
+| `GET /api/health` | Public liveness probe, nothing else |
+
+## Data sources and terms
+
+- **adsb.fi** open data API: personal, non-commercial use only; credit
+  [adsb.fi](https://adsb.fi). 1 request/second limit.
+- **OpenSky Network**: optional fallback. Anonymous access is ~400 credits/day (a full
+  India query costs 4), so set `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` for 4000/day.
+- **airplanes.live** now requires approval from its operators before API use, so it is not
+  wired in. The provider interface (`backend/src/ingest/aircraft.ts`) makes adding it easy.
+- Basemap: OpenFreeMap (OpenStreetMap data). Map borders are as drawn by OSM.
+
+## Known limitations
+
+- ADS-B only: aircraft without a transponder, military flights and gaps in receiver
+  coverage are missing, so counts are lower than the true number of aircraft.
+- Routes come from a callsign -> route table (adsbdb), not from the aircraft. They can be
+  wrong for re-used callsigns or re-routed flights, and about 20-35% of flights have none.
+- **Delayed flights** cannot be computed: free ADS-B feeds carry no schedule data. The card
+  shows N/A until a schedule source is chosen.
+- The route cache is in memory and is rebuilt after a restart (about a minute).
+- Sessions cannot be revoked server-side before they expire (stateless JWT); logging out only
+  clears the browser cookie. Rate limiter and sessions assume a single backend instance.
+- The live view starts empty after a restart until the first sweep finishes; history survives
+  restarts.
+- "Busiest airports" and "Airline share" count *distinct aircraft seen airborne with that route*,
+  not landings: a flight still hours from its destination is included. Hourly averages are only
+  as good as the route data available when each cycle ran.
+- `npm run db:dev` is for machines without Docker only. It is not for production.

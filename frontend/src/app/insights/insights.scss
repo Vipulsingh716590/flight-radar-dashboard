@@ -1,0 +1,86 @@
+:host {
+  display: block;
+  height: 100%;
+  overflow: auto;
+}
+
+.insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+.range,
+.note {
+  grid-column: 1 / -1;
+}
+
+.range {
+  display: flex;
+  gap: 6px;
+
+  button {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+
+    &.on {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+
+  &.bad {
+    color: var(--text);
+    background: color-mix(in srgb, var(--bad) 18%, var(--surface));
+  }
+}
+
+.chart-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.sub {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.box {
+  position: relative;
+  height: 220px;
+
+  &.tall {
+    height: 300px;
+  }
+}

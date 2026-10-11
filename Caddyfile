@@ -1,0 +1,10 @@
+# Public HTTPS entry point (compose profile "tls").
+# Caddy obtains and renews the certificate for $DOMAIN automatically.
+{$DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy web:80 {
+		# Server-Sent Events: pass each event through immediately.
+		flush_interval -1
+	}
+}

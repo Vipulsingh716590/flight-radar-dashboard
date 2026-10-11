@@ -1,0 +1,85 @@
+@if (selectedId()) {
+  <aside class="card" aria-label="Selected flight">
+    @if (flight(); as f) {
+      <header>
+        <div class="title">
+          <h2>{{ f.callsign ?? (f.id | uppercase) }}</h2>
+          @if (f.type) {
+            <span class="badge">{{ f.type }}</span>
+          }
+          <span class="kind" [style.--kind]="kindColor[f.kind]"><i class="swatch"></i>{{ kindLabel[f.kind] }}</span>
+        </div>
+        <button type="button" class="close" (click)="close()" aria-label="Close flight details">×</button>
+        <p class="airline">{{ f.airline ?? 'Airline unknown' }}</p>
+      </header>
+
+      <section class="route" aria-label="Route">
+        <div class="end">
+          @if (f.origin; as o) {
+            @if (o.inIndia) {
+              <a class="code" [routerLink]="['/airports', o.code]">{{ o.code }}</a>
+            } @else {
+              <span class="code">{{ o.code }}</span>
+            }
+            <span class="city">{{ o.city ?? o.name ?? '' }}</span>
+          } @else {
+            <span class="code muted">?</span>
+            <span class="city">Origin unknown</span>
+          }
+        </div>
+        <span class="arrow" aria-hidden="true">✈</span>
+        <div class="end right">
+          @if (f.destination; as d) {
+            @if (d.inIndia) {
+              <a class="code" [routerLink]="['/airports', d.code]">{{ d.code }}</a>
+            } @else {
+              <span class="code">{{ d.code }}</span>
+            }
+            <span class="city">{{ d.city ?? d.name ?? '' }}</span>
+          } @else {
+            <span class="code muted">?</span>
+            <span class="city">Destination unknown</span>
+          }
+        </div>
+      </section>
+
+      @if (progress(); as p) {
+        @if (p.plausible) {
+        <div class="progress" role="img"
+          [attr.aria-label]="(p.fraction * 100 | number: '1.0-0') + '% of the route flown'">
+          <div class="bar"><span class="fill" [style.width.%]="p.fraction * 100"></span><span class="plane" [style.left.%]="p.fraction * 100">✈</span></div>
+          <div class="legs">
+            <span>{{ p.flownKm | number: '1.0-0' }} km flown</span>
+            <span>{{ p.remainingKm | number: '1.0-0' }} km to go</span>
+          </div>
+        </div>
+        } @else {
+          <p class="warn" data-testid="route-mismatch">
+            This position does not fit the route above, so the callsign may be re-used. Treat the route as unreliable.
+          </p>
+        }
+      }
+
+      <dl class="stats">
+        @for (s of stats(); track s.label) {
+          <div>
+            <dt>{{ s.label }}</dt>
+            <dd>{{ s.value }}</dd>
+          </div>
+        }
+      </dl>
+
+      @if (f.origin || f.destination) {
+        <p class="note">
+          Route is looked up by callsign and may differ from the actual flight. Distances are straight-line.
+        </p>
+      }
+    } @else {
+      <header>
+        <div class="title"><h2>Out of range</h2></div>
+        <button type="button" class="close" (click)="close()" aria-label="Close flight details">×</button>
+      </header>
+      <p class="note">This flight is no longer being received over India.</p>
+    }
+  </aside>
+}

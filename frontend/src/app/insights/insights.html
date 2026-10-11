@@ -1,0 +1,35 @@
+<section class="insights">
+  <div class="range" role="group" aria-label="Time window">
+    @for (window of windows; track window) {
+      <button type="button" [class.on]="hours() === window" [attr.aria-pressed]="hours() === window" (click)="setHours(window)">
+        Last {{ window }} h
+      </button>
+    }
+  </div>
+
+  @if (failed()) {
+    <p class="note bad">Could not load history. It will retry automatically.</p>
+  } @else if (!loaded()) {
+    <p class="note">Loading history…</p>
+  } @else if (empty()) {
+    <p class="note">No history yet. Charts fill in as the backend records each refresh (about every 75 seconds).</p>
+  }
+
+  <article class="chart-card">
+    <h2>Traffic by hour</h2>
+    <p class="sub">Average airborne flights, split by relation to India</p>
+    <div class="box"><app-chart [config]="trafficChart()" label="Stacked bar chart of average airborne flights per hour" /></div>
+  </article>
+
+  <article class="chart-card">
+    <h2>Busiest airports</h2>
+    <p class="sub">Distinct flights arriving / departing · click a bar to open its board</p>
+    <div class="box tall"><app-chart [config]="airportChart()" label="Bar chart of the ten busiest Indian airports" /></div>
+  </article>
+
+  <article class="chart-card">
+    <h2>Airline share</h2>
+    <p class="sub">Distinct flights with a known airline</p>
+    <div class="box"><app-chart [config]="airlineChart()" label="Doughnut chart of airline share" /></div>
+  </article>
+</section>

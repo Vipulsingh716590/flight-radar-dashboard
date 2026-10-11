@@ -1,0 +1,36 @@
+<div class="search">
+  <input
+    type="search"
+    role="combobox"
+    placeholder="Search flight, airline, airport…"
+    aria-label="Search flights and airports"
+    aria-autocomplete="list"
+    [attr.aria-expanded]="showPanel()"
+    autocomplete="off"
+    spellcheck="false"
+    [value]="query()"
+    (input)="onInput($event)"
+    (focus)="open.set(true)"
+    (blur)="onBlur()"
+    (keydown)="onKey($event)"
+  />
+
+  @if (showPanel()) {
+    <ul class="results" role="listbox">
+      @for (hit of hits(); track hit.key) {
+        <li role="option">
+          <button type="button" (mousedown)="$event.preventDefault()" (click)="choose(hit)">
+            <span class="icon" [class.airport]="hit.kind === 'airport'">{{ hit.kind === 'flight' ? '✈' : '⌖' }}</span>
+            <span class="text">
+              <strong>{{ hit.title }}</strong>
+              <span class="detail">{{ hit.detail }}</span>
+            </span>
+            <span class="type">{{ hit.kind === 'flight' ? 'Flight' : 'Airport' }}</span>
+          </button>
+        </li>
+      } @empty {
+        <li class="empty">No flights or airports match “{{ query() }}”.</li>
+      }
+    </ul>
+  }
+</div>

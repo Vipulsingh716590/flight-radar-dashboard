@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.angular/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Raw Natural Earth download used to derive backend/data/india.geojson
+backend-data/
+backend/.dev-postgres/
+.claude/
+*.tsbuildinfo

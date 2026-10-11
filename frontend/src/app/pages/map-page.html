@@ -1,0 +1,50 @@
+<div class="kpi"><app-kpi-bar /></div>
+
+<div class="stage">
+  <app-live-map class="map" />
+
+  <app-flight-card class="flight-card" />
+
+  <div class="controls" role="group" aria-label="Map options">
+    <div class="seg" role="group" aria-label="Colour planes by">
+      <span class="seg-label">Colour by</span>
+      @for (mode of modes; track mode.id) {
+        <button
+          type="button"
+          [class.on]="settings.colorBy() === mode.id"
+          [attr.aria-pressed]="settings.colorBy() === mode.id"
+          (click)="settings.colorBy.set(mode.id)"
+        >
+          {{ mode.label }}
+        </button>
+      }
+    </div>
+    <button
+      type="button"
+      class="toggle"
+      [class.on]="settings.showAirports()"
+      [attr.aria-pressed]="settings.showAirports()"
+      (click)="toggleAirports()"
+    >
+      Airports
+    </button>
+  </div>
+
+  <div class="legend" aria-label="Legend">
+    @if (settings.colorBy() === 'altitude') {
+      <span class="legend-title">Altitude (ft)</span>
+      @for (item of altitudeLegend; track item.label) {
+        <span class="item"><i [style.background]="item.color"></i>{{ item.label }}</span>
+      }
+    } @else {
+      <span class="legend-title">Route type</span>
+      @for (item of kindLegend; track item.label) {
+        <span class="item"><i [style.background]="item.color"></i>{{ item.label }}</span>
+      }
+    }
+  </div>
+
+  @if (settings.inView() !== null) {
+    <div class="in-view" data-testid="in-view">{{ settings.inView() | number }} aircraft in view</div>
+  }
+</div>

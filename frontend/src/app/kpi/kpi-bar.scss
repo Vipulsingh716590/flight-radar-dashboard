@@ -1,0 +1,121 @@
+.kpi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 112px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--kind);
+  flex: none;
+}
+
+.value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+
+  &.small {
+    font-size: 22px;
+  }
+
+  &.muted {
+    color: var(--muted);
+  }
+}
+
+.primary .value {
+  color: var(--accent);
+}
+
+.status {
+  flex: 1 1 240px;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--warn);
+  flex: none;
+}
+
+.status.ok .dot {
+  background: var(--ok);
+}
+
+.status.bad .dot {
+  background: var(--bad);
+}
+
+/*
+ * Small screens (phones, or short windows): one horizontally scrollable row of
+ * compact cards, so the map keeps the space instead of a wall of tiles.
+ */
+@media (max-width: 600px), (max-height: 600px) {
+  .kpi {
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .card {
+    flex: none;
+    min-width: 0;
+    padding: 5px 9px;
+  }
+
+  .meta {
+    display: none;
+  }
+
+  .label {
+    font-size: 10px;
+  }
+
+  .value {
+    font-size: 22px;
+
+    &.small {
+      font-size: 17px;
+    }
+  }
+}

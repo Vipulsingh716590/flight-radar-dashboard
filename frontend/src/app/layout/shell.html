@@ -1,0 +1,35 @@
+<header class="bar">
+  <a class="brand" routerLink="/">Flight Radar India</a>
+
+  <nav class="nav" aria-label="Main">
+    @for (link of links; track link.path) {
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="on"
+        [routerLinkActiveOptions]="{ exact: link.exact }"
+        >{{ link.label }}</a
+      >
+    }
+  </nav>
+
+  <app-global-search />
+
+  <div class="right">
+    <span class="feed" [class.ok]="feedOk()" [class.bad]="feedBad()" data-testid="feed-status"
+      [title]="feedSource() ? 'Source: ' + feedSource() : ''">
+      <i class="dot"></i>{{ feedLabel() }}@if (feedAge(); as age) { · {{ age }} }
+    </span>
+
+    @if (user(); as current) {
+      <span class="account">
+        <span class="who" [title]="current.email">{{ current.email }}</span>
+        <span class="role">{{ current.role }}</span>
+        <button type="button" (click)="logout()">Sign out</button>
+      </span>
+    }
+  </div>
+</header>
+
+<main class="page">
+  <router-outlet />
+</main>

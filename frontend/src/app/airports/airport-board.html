@@ -1,0 +1,78 @@
+<section class="board">
+  <div class="search">
+    <input
+      type="search"
+      placeholder="Search airport: code, name or city…"
+      aria-label="Search airports"
+      autocomplete="off"
+      (input)="onSearch($event)"
+    />
+    @if (results().length) {
+      <ul class="results" role="listbox">
+        @for (airport of results(); track airport.icao ?? airport.iata) {
+          <li role="option">
+            <button type="button" (click)="pick(airport)">
+              <strong>{{ code(airport) }}</strong>
+              <span>{{ airport.name }}@if (airport.city) { · {{ airport.city }} }</span>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else if (searching()) {
+      <p class="hint">Searching…</p>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="hint bad">{{ error() }}</p>
+  }
+
+  @if (board(); as current) {
+    <header class="airport">
+      <h2>{{ current.airport.iata ?? current.airport.icao }}</h2>
+      <p>{{ current.airport.name }}@if (current.airport.city) { · {{ current.airport.city }} }</p>
+    </header>
+
+    @for (column of [
+      { title: 'Arriving', flights: current.arrivals, other: 'From' },
+      { title: 'Departed', flights: current.departures, other: 'To' }
+    ]; track column.title) {
+      <h3>{{ column.title }} <span class="count">{{ column.flights.length }}</span></h3>
+      @if (column.flights.length === 0) {
+        <p class="hint">No known flights right now.</p>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th>Flight</th>
+              <th>{{ column.other }}</th>
+              <th class="num">Dist (km)</th>
+              <th class="num">Alt (ft)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (flight of column.flights; track flight.id) {
+              <tr [class.selected]="selectedId() === flight.id" (click)="select(flight)">
+                <td>
+                  <span class="callsign">{{ flight.callsign ?? flight.id.toUpperCase() }}</span>
+                  <span class="sub">{{ flight.airline ?? flight.aircraftType ?? '' }}</span>
+                </td>
+                <td>
+                  <span>{{ flight.other?.code ?? '—' }}</span>
+                  <span class="sub">{{ flight.other?.city ?? '' }}</span>
+                </td>
+                <td class="num">{{ flight.distanceKm | number }}</td>
+                <td class="num">{{ altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+    <p class="hint foot">
+      Based on callsign-derived routes of flights currently airborne; flights with an unknown route are not listed.
+    </p>
+  } @else if (!error()) {
+    <p class="hint">Search for an airport, or click a bar in the Insights tab, to see its live board.</p>
+  }
+</section>

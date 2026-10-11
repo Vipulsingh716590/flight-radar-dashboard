@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.dev-postgres
+coverage
+test
+scripts
+*.log
+Dockerfile
+.dockerignore

@@ -1,0 +1,24 @@
+<section class="kpi" aria-live="polite">
+  <div class="card primary">
+    <span class="label">Airborne over India</span>
+    <span class="value" data-testid="airborne-count">
+      {{ airborne() === null ? '—' : (airborne() | number) }}
+    </span>
+    @if (routeCoverage(); as coverage) {
+      <span class="meta">Route known for {{ coverage.known }} of {{ coverage.of }}</span>
+    }
+  </div>
+
+  @for (card of cards(); track card.label) {
+    <div class="card" [title]="card.hint" [style.--kind]="card.color">
+      <span class="label"><i class="swatch"></i>{{ card.label }}</span>
+      <span class="value small">{{ card.value === null ? '—' : (card.value | number) }}</span>
+    </div>
+  }
+
+  <div class="card" title="Needs a flight-schedule feed, which the free ADS-B sources do not provide">
+    <span class="label">Delayed</span>
+    <span class="value small muted">N/A</span>
+    <span class="meta">No schedule data</span>
+  </div>
+</section>
