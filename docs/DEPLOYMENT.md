@@ -147,7 +147,7 @@ webhook, so pushes do not deploy (observed here). The fallback is
 `.github/workflows/render-deploy.yml`: on every push that touches `backend/**` it calls the
 service's **Deploy Hook**. One-time setup: Render -> service -> *Settings -> Deploy Hook* -> copy
 the URL; GitHub -> repo *Settings -> Secrets and variables -> Actions* -> new secret
-`RENDER_DEPLOY_HOOK`. Without the secret the workflow skips quietly.
+`RENDER_DEPLOY_HOOK`. Without the secret the workflow fails (red) so a missing secret is not overlooked.
 **Manual Deploy -> Deploy latest commit** always works too.
 
 **Free plan behaviour**: the service sleeps after ~15 minutes without requests. The background

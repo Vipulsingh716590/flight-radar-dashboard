@@ -12,6 +12,7 @@ on:
       - 'backend/**'
       - 'Dockerfile'
       - 'render.yaml'
+      - '.github/workflows/render-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -27,7 +28,7 @@ jobs:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "RENDER_DEPLOY_HOOK secret is not set - skipping."; exit 0
+            echo "::error::RENDER_DEPLOY_HOOK secret is not set (Settings -> Secrets and variables -> Actions)."; exit 1
           fi
           curl --fail --silent --show-error -X POST "$HOOK" > /dev/null
           echo "Render deploy triggered."
