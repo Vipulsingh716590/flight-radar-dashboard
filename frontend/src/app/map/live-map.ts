@@ -26,6 +26,7 @@ import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
 import { MapSettings, type MapView } from '../core/map-settings';
+import { nightRing } from '../core/solar';
 import { Watchlist } from '../core/watchlist';
 import { Weather } from '../core/weather';
 import { ThemeService, type Theme } from '../core/theme';
@@ -43,6 +44,10 @@ const DEM = 'terrain-dem';
 const BUILDINGS_LAYER = 'buildings-3d';
 const SHADOW_LAYER = 'planes-shadow';
 const WATCH_LAYER = 'watched-ring';
+const NIGHT = 'night';
+/** Sun altitudes whose "below" regions are stacked: night, civil and nautical twilight edges. */
+const NIGHT_LEVELS = [0, -6, -12];
+const NIGHT_REFRESH_MS = 60_000;
 const EMERGENCY_LAYER = 'emergency-ring';
 /** Free elevation tiles (Mapzen Terrarium encoding), no key needed. */
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
@@ -173,6 +178,7 @@ export class LiveMap implements OnDestroy {
   private radarIndex = 0;
   private radarTimer: ReturnType<typeof setInterval> | null = null;
   private lastFlyN = 0;
+  private nightTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     afterNextRender(() => this.init());
@@ -212,6 +218,10 @@ export class LiveMap implements OnDestroy {
       untracked(() => this.render());
     });
     effect(() => {
+      this.settings.dayNight();
+      untracked(() => this.applyNight());
+    });
+    effect(() => {
       this.settings.radar();
       this.settings.radarPlaying();
       untracked(() => this.applyRadar());
@@ -232,6 +242,7 @@ export class LiveMap implements OnDestroy {
 
   ngOnDestroy(): void {
     if (this.radarTimer) clearInterval(this.radarTimer);
+    if (this.nightTimer) clearInterval(this.nightTimer);
     if (this.tickTimer) clearInterval(this.tickTimer);
     this.map?.remove();
   }
@@ -455,6 +466,7 @@ export class LiveMap implements OnDestroy {
       this.ready = true;
       this.applyView(this.settings.view());
       this.applyRadar();
+      this.applyNight();
       this.showPins();
       this.applyAirportVisibility(this.settings.showAirports());
       this.render();
@@ -666,6 +678,52 @@ export class LiveMap implements OnDestroy {
         duration: 900,
       });
     }
+  }
+
+  /**
+   * Night shading: three stacked polygons (sun below 0, -6 and -12 degrees), so
+   * the darkness deepens through twilight. Recomputed every minute from the
+   * clock; no data is fetched.
+   */
+  private applyNight(): void {
+    const map = this.map;
+    if (!map || !this.ready) return;
+    const on = this.settings.dayNight();
+    if (this.nightTimer) {
+      clearInterval(this.nightTimer);
+      this.nightTimer = null;
+    }
+    if (map.getLayer(NIGHT)) map.setLayoutProperty(NIGHT, 'visibility', on ? 'visible' : 'none');
+    if (!on) return;
+    this.drawNight(map);
+    this.nightTimer = setInterval(() => this.drawNight(map), NIGHT_REFRESH_MS);
+  }
+
+  private drawNight(map: MapLibreMap): void {
+    const now = new Date();
+    const data = {
+      type: 'FeatureCollection' as const,
+      features: NIGHT_LEVELS.map((level) => ({
+        type: 'Feature' as const,
+        properties: { level },
+        geometry: { type: 'Polygon' as const, coordinates: [nightRing(now, level)] },
+      })),
+    };
+    const existing = map.getSource<GeoJSONSource>(NIGHT);
+    if (existing) {
+      existing.setData(data);
+      return;
+    }
+    map.addSource(NIGHT, { type: 'geojson', data });
+    map.addLayer(
+      {
+        id: NIGHT,
+        type: 'fill',
+        source: NIGHT,
+        paint: { 'fill-color': '#020a1c', 'fill-opacity': 0.2, 'fill-antialias': false },
+      },
+      map.getLayer(TRACK_LAYER) ? TRACK_LAYER : undefined,
+    );
   }
 
   /**

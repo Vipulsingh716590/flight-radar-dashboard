@@ -436,6 +436,18 @@ describe('pages and navigation', () => {
       expect(photo?.querySelector('img')?.getAttribute('src')).toContain('plnspttrs.net');
     });
 
+    it('toggles the day / night shading from Settings', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      expect(settings.dayNight()).toBe(false);
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-settings"]')!.click();
+      await fixture.whenStable();
+      root.querySelector<HTMLInputElement>('[data-testid="day-night-toggle"]')!.click();
+      await fixture.whenStable();
+      expect(settings.dayNight()).toBe(true);
+    });
+
     it('reports how many aircraft are in view', async () => {
       signIn();
       const { fixture, root } = await open('/');

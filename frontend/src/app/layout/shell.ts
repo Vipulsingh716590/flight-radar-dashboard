@@ -14,6 +14,7 @@ import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import { FEED_LABEL } from '../core/format';
 import { Icon } from '../core/icon';
+import { PwaInstall } from '../core/pwa-install';
 import { THEMES, ThemeService, type Theme } from '../core/theme';
 import { GlobalSearch } from './global-search';
 
@@ -65,6 +66,8 @@ export class Shell implements OnDestroy {
   protected readonly feedSource = computed(() => this.stream.snapshot()?.source ?? null);
 
   constructor() {
+    // Created early so the browser's install prompt event is not missed.
+    inject(PwaInstall);
     this.stream.connect();
   }
 

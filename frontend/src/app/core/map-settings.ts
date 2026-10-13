@@ -20,6 +20,8 @@ export class MapSettings {
   /** Chase camera: keeps the selected flight centred and looks along its heading. */
   readonly follow = signal(false);
   readonly units = signal<Units>('aviation');
+  /** Shade the night side of the earth (sun position from the clock). */
+  readonly dayNight = signal(false);
 
   /** Filters: what is hidden (so "nothing hidden" is the default and needs no state). */
   readonly hiddenKinds = signal<ReadonlySet<FlightKind>>(new Set());

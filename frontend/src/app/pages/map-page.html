@@ -124,6 +124,32 @@
               />
               <span>Airports</span>
             </label>
+
+            <label class="check">
+              <input
+                type="checkbox"
+                data-testid="day-night-toggle"
+                [checked]="settings.dayNight()"
+                (change)="toggleDayNight()"
+              />
+              <span>Day / night shading</span>
+            </label>
+
+            @if (pwa.canInstall() || pwa.showIosHint()) {
+              <section class="group" data-testid="install-app">
+                <p class="group-title">App</p>
+                @if (pwa.canInstall()) {
+                  <button type="button" class="btn-accent small" (click)="pwa.install()">
+                    Install Flight Radar India
+                  </button>
+                  <p class="hint">Adds it to your home screen and opens it full-screen, like an app.</p>
+                } @else {
+                  <p class="hint">
+                    To install: tap the Share button in Safari, then "Add to Home Screen".
+                  </p>
+                }
+              </section>
+            }
           }
 
           @case ('weather') {

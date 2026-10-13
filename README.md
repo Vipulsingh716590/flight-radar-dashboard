@@ -59,6 +59,16 @@ Map features worth knowing:
   link back (looked up by ICAO24 hex, then by registration; many aircraft have no photo).
 - **Saved flights** (star on the card, **Saved** tool): kept in this browser's localStorage, shown
   with a gold ring on the map and listed with their route, or "Not in range".
+- **Day / night shading** (Settings): the night side of the earth is shaded in three steps (night,
+  civil and nautical twilight) from the sun's position, computed in the browser from the clock
+  (`frontend/src/app/core/solar.ts`, no data source) and refreshed every minute. Off by default.
+- **Install as an app (PWA)**: a web app manifest and icons (`frontend/public/manifest.webmanifest`,
+  `frontend/public/icons/`, regenerate with `node scripts/make-icons.mjs`) let Chrome/Edge/Android
+  install it; Settings shows an **Install** button when the browser offers it, and on iOS a hint
+  (Share -> Add to Home Screen). A small service worker (`frontend/public/sw.js`) caches only the
+  app shell and hashed build files so it opens fast and shows its frame offline; it never caches
+  `/api`, `/config.json` or cross-origin requests, so data is always live. It registers in
+  production builds only.
 - **Units** (Settings): aviation (ft, kt, ft/min) or metric (m, km/h, m/s) on the flight card.
 - **Share** on the flight card copies a link (`/?flight=<icao24>`) that opens the map on that flight.
 - **My location** button centres the map on the device position (browser permission required).

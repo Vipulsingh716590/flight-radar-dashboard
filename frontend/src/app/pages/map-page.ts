@@ -16,6 +16,7 @@ import { FlightStream } from '../core/flight-stream';
 import { ALTITUDE_BANDS, KIND_COLOR, KIND_LABEL, KINDS, type ColorBy } from '../core/format';
 import { Icon } from '../core/icon';
 import { MapSettings, type MapView, type Units } from '../core/map-settings';
+import { PwaInstall } from '../core/pwa-install';
 import { Watchlist } from '../core/watchlist';
 import { compass, Weather, weatherText, type Conditions } from '../core/weather';
 import { KpiBar } from '../kpi/kpi-bar';
@@ -49,6 +50,7 @@ export class MapPage {
   private readonly selection = inject(FlightSelection);
   private readonly weather = inject(Weather);
   protected readonly watchlist = inject(Watchlist);
+  protected readonly pwa = inject(PwaInstall);
 
   /** Airborne flights squawking 7500 / 7600 / 7700. */
   protected readonly emergencies = computed(() =>
@@ -166,6 +168,10 @@ export class MapPage {
 
   protected toggleAirports(): void {
     this.settings.showAirports.update((on) => !on);
+  }
+
+  protected toggleDayNight(): void {
+    this.settings.dayNight.update((on) => !on);
   }
 
   protected toggleRadar(): void {
