@@ -10,8 +10,10 @@
 #   API_BASE_URL  public API origin if it is NOT served through this nginx
 #                 (default empty = same origin)
 
+# Node 24 (npm 11): the lock files are written by npm 11, and npm 10 (Node 22's
+# npm) refuses `npm ci` on them with "Missing: typescript@... from lock file".
 # ---- build ------------------------------------------------------------------
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./

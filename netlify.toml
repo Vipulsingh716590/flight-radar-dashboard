@@ -10,7 +10,7 @@
   publish = "dist/frontend/browser"
 
 [build.environment]
-  NODE_VERSION = "22"
+  NODE_VERSION = "24"
 
 # Single-page app: every unknown path serves index.html (deep links such as /airports/DEL).
 [[redirects]]
