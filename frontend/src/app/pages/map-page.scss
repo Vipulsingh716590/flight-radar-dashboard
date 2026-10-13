@@ -649,9 +649,11 @@
     max-height: min(72%, calc(100% - 90px));
   }
 
+  /* Under the counters: the bottom edge belongs to the map attribution. */
   .in-view {
+    top: 78px;
     right: auto;
-    bottom: 34px;
+    bottom: auto;
     left: 8px;
   }
 
