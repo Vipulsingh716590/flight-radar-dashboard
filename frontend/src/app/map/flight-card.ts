@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import { feet, KIND_COLOR, KIND_LABEL, knots } from '../core/format';
 import { routeProgress } from '../core/geo';
+import { Icon } from '../core/icon';
 import { MapSettings } from '../core/map-settings';
 
 /** Vertical rates below this (ft/min) are shown as level flight. */
@@ -18,7 +19,7 @@ const METRES_PER_SECOND_TO_FPM = 196.85;
  */
 @Component({
   selector: 'app-flight-card',
-  imports: [DecimalPipe, UpperCasePipe, RouterLink],
+  imports: [DecimalPipe, UpperCasePipe, RouterLink, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './flight-card.html',
   styleUrl: './flight-card.scss',
@@ -55,26 +56,42 @@ export class FlightCard {
   });
 
   protected readonly following = this.settings.follow;
+  protected readonly hasData = computed(() => this.stream.snapshot() !== null);
+  protected readonly copied = signal(false);
 
   protected readonly stats = computed(() => {
     const flight = this.flight();
     if (!flight) return [];
-    const alt = feet(flight.alt);
-    const speed = knots(flight.speed);
+    const metric = this.settings.units() === 'metric';
+    const alt = metric ? (flight.alt === null ? null : Math.round(flight.alt)) : feet(flight.alt);
+    const speed = metric
+      ? flight.speed === null
+        ? null
+        : Math.round(flight.speed * 3.6)
+      : knots(flight.speed);
     const vrate =
-      flight.vrate === null ? null : Math.round(flight.vrate * METRES_PER_SECOND_TO_FPM);
+      flight.vrate === null
+        ? null
+        : metric
+          ? Math.round(flight.vrate * 10) / 10
+          : Math.round(flight.vrate * METRES_PER_SECOND_TO_FPM);
+    const vrateLevel = metric ? 0.5 : LEVEL_FPM;
+    const vrateUnit = metric ? 'm/s' : 'ft/min';
     return [
-      { label: 'Altitude', value: alt === null ? '—' : `${alt.toLocaleString()} ft` },
-      { label: 'Speed', value: speed === null ? '—' : `${speed} kt` },
+      {
+        label: 'Altitude',
+        value: alt === null ? '—' : `${alt.toLocaleString()} ${metric ? 'm' : 'ft'}`,
+      },
+      { label: 'Speed', value: speed === null ? '—' : `${speed} ${metric ? 'km/h' : 'kt'}` },
       { label: 'Heading', value: flight.heading === null ? '—' : `${Math.round(flight.heading)}°` },
       {
         label: 'Vertical rate',
         value:
           vrate === null
             ? '—'
-            : Math.abs(vrate) < LEVEL_FPM
+            : Math.abs(vrate) < vrateLevel
               ? 'Level'
-              : `${vrate > 0 ? '▲' : '▼'} ${Math.abs(vrate).toLocaleString()} ft/min`,
+              : `${vrate > 0 ? '▲' : '▼'} ${Math.abs(vrate).toLocaleString()} ${vrateUnit}`,
       },
       { label: 'Registration', value: flight.reg ?? '—' },
       { label: 'Squawk', value: flight.squawk ?? '—' },
@@ -94,6 +111,21 @@ export class FlightCard {
     }
     this.settings.view.set('3d');
     this.settings.follow.set(true);
+  }
+
+  /** Copies a link that opens the map on this flight. */
+  protected async share(): Promise<void> {
+    const id = this.selectedId();
+    if (!id) return;
+    const url = `${location.origin}/?flight=${encodeURIComponent(id)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    } catch {
+      // Clipboard blocked: show the link so it can be copied by hand.
+      window.prompt('Copy this link', url);
+    }
   }
 
   protected close(): void {

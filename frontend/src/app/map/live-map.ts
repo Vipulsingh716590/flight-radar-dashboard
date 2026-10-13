@@ -12,6 +12,7 @@ import {
 import { Router } from '@angular/router';
 import {
   GeoJSONSource,
+  RasterTileSource,
   Map as MapLibreMap,
   NavigationControl,
   setWorkerUrl,
@@ -24,6 +25,7 @@ import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
 import { MapSettings, type MapView } from '../core/map-settings';
+import { Weather } from '../core/weather';
 import { ThemeService, type Theme } from '../core/theme';
 
 const PLANES = 'planes';
@@ -41,6 +43,15 @@ const SHADOW_LAYER = 'planes-shadow';
 /** Free elevation tiles (Mapzen Terrarium encoding), no key needed. */
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 /** Camera used while following a flight. */
+const RADAR = 'rain-radar';
+const RADAR_LAYER = 'rain-radar-layer';
+/** RainViewer's free tiles stop at zoom 7; MapLibre scales them up beyond that. */
+const RADAR_MAX_ZOOM = 7;
+/** Frames used by the animation (newest N) and how long each is shown. */
+const RADAR_FRAMES = 8;
+const RADAR_STEP_MS = 800;
+/** Frame list is re-read this often so the radar stays current. */
+const RADAR_REFRESH_MS = 10 * 60_000;
 const FOLLOW_PITCH = 62;
 const FOLLOW_ZOOM = 9;
 const TILT_PITCH = 60;
@@ -131,6 +142,7 @@ export class LiveMap implements OnDestroy {
   private readonly stream = inject(FlightStream);
   private readonly selection = inject(FlightSelection);
   private readonly settings = inject(MapSettings);
+  private readonly weather = inject(Weather);
   private readonly themeService = inject(ThemeService);
   private readonly api = inject(Api);
   private readonly router = inject(Router);
@@ -149,6 +161,13 @@ export class LiveMap implements OnDestroy {
   private appliedTheme: Theme | null = null;
   private listenersBound = false;
   private appliedView: MapView = '2d';
+  private radarHost = '';
+  private radarFrames: { path: string; time: number }[] = [];
+  private radarLoadedAt = 0;
+  private radarLoading = false;
+  private radarIndex = 0;
+  private radarTimer: ReturnType<typeof setInterval> | null = null;
+  private lastFlyN = 0;
 
   constructor() {
     afterNextRender(() => this.init());
@@ -177,12 +196,33 @@ export class LiveMap implements OnDestroy {
       untracked(() => this.render());
     });
     effect(() => {
+      // Filters changed: redraw straight away instead of waiting for the next tick.
+      this.settings.hiddenKinds();
+      this.settings.hiddenBands();
+      this.settings.knownRouteOnly();
+      untracked(() => this.render());
+    });
+    effect(() => {
+      this.settings.radar();
+      this.settings.radarPlaying();
+      untracked(() => this.applyRadar());
+    });
+    effect(() => {
+      const target = this.settings.flyTo();
+      if (!target || target.n === this.lastFlyN) return;
+      this.lastFlyN = target.n;
+      untracked(() =>
+        this.map?.flyTo({ center: [target.lon, target.lat], zoom: target.zoom, speed: 1.6 }),
+      );
+    });
+    effect(() => {
       const visible = this.settings.showAirports();
       untracked(() => this.applyAirportVisibility(visible));
     });
   }
 
   ngOnDestroy(): void {
+    if (this.radarTimer) clearInterval(this.radarTimer);
     if (this.tickTimer) clearInterval(this.tickTimer);
     this.map?.remove();
   }
@@ -365,7 +405,11 @@ export class LiveMap implements OnDestroy {
           map.on('mouseenter', layer, pointer(true));
           map.on('mouseleave', layer, pointer(false));
         }
-        map.on('moveend', () => this.updateInView());
+        map.on('moveend', () => {
+          this.updateInView();
+          const centre = map.getCenter();
+          this.settings.center.set({ lat: centre.lat, lon: centre.lng });
+        });
         // Dragging the map with the mouse/finger ends the chase camera.
         map.on('dragstart', (event) => {
           if (event.originalEvent && this.settings.follow()) this.settings.follow.set(false);
@@ -374,6 +418,7 @@ export class LiveMap implements OnDestroy {
 
       this.ready = true;
       this.applyView(this.settings.view());
+      this.applyRadar();
       this.showPins();
       this.applyAirportVisibility(this.settings.showAirports());
       this.render();
@@ -399,6 +444,7 @@ export class LiveMap implements OnDestroy {
     let selectedPosition: [number, number] | null = null;
     for (const flight of snapshot.flights) {
       if (flight.onGround) continue;
+      if (flight.id !== selectedId && !this.settings.passes(flight)) continue;
       this.byId.set(flight.id, flight);
       const position = project(flight, now);
       if (flight.id === selectedId) selectedPosition = position;
@@ -581,6 +627,87 @@ export class LiveMap implements OnDestroy {
         duration: 900,
       });
     }
+  }
+
+  /**
+   * Rain radar (RainViewer). Shows the newest frame, or loops over the last
+   * few when playing. Sources are rebuilt after a style swap, so this is
+   * also called from `setUpLayers`.
+   */
+  private applyRadar(): void {
+    const map = this.map;
+    if (!map || !this.ready) return;
+    if (this.radarTimer) {
+      clearInterval(this.radarTimer);
+      this.radarTimer = null;
+    }
+    const on = this.settings.radar();
+    if (map.getLayer(RADAR_LAYER))
+      map.setLayoutProperty(RADAR_LAYER, 'visibility', on ? 'visible' : 'none');
+    if (!on) return;
+
+    if (this.radarFrames.length === 0 || Date.now() - this.radarLoadedAt > RADAR_REFRESH_MS) {
+      void this.loadRadar();
+      if (this.radarFrames.length === 0) return;
+    }
+    this.ensureRadarLayer(map);
+    const frames = this.radarFrames.slice(-RADAR_FRAMES);
+    if (!this.settings.radarPlaying()) {
+      this.showRadarFrame(map, frames.length - 1);
+      return;
+    }
+    this.radarIndex = 0;
+    this.showRadarFrame(map, 0);
+    this.radarTimer = setInterval(() => {
+      this.radarIndex = (this.radarIndex + 1) % frames.length;
+      this.showRadarFrame(map, this.radarIndex);
+    }, RADAR_STEP_MS);
+  }
+
+  private async loadRadar(): Promise<void> {
+    if (this.radarLoading) return;
+    this.radarLoading = true;
+    try {
+      const data = await this.weather.radarFrames();
+      this.radarHost = data.host;
+      this.radarFrames = data.frames;
+      this.radarLoadedAt = Date.now();
+      this.settings.radarError.set(data.frames.length === 0);
+    } catch {
+      this.settings.radarError.set(true);
+    } finally {
+      this.radarLoading = false;
+    }
+    if (this.radarFrames.length > 0) this.applyRadar();
+  }
+
+  private radarTiles(path: string): string[] {
+    return [`${this.radarHost}${path}/256/{z}/{x}/{y}/2/1_1.png`];
+  }
+
+  private ensureRadarLayer(map: MapLibreMap): void {
+    if (map.getSource(RADAR) || this.radarFrames.length === 0) return;
+    const latest = this.radarFrames[this.radarFrames.length - 1]!;
+    map.addSource(RADAR, {
+      type: 'raster',
+      tiles: this.radarTiles(latest.path),
+      tileSize: 256,
+      maxzoom: RADAR_MAX_ZOOM,
+      attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>',
+    });
+    map.addLayer(
+      { id: RADAR_LAYER, type: 'raster', source: RADAR, paint: { 'raster-opacity': 0.7 } },
+      map.getLayer(TRACK_LAYER) ? TRACK_LAYER : undefined,
+    );
+  }
+
+  private showRadarFrame(map: MapLibreMap, index: number): void {
+    const frames = this.radarFrames.slice(-RADAR_FRAMES);
+    const frame = frames[index];
+    const source = map.getSource<RasterTileSource>(RADAR);
+    if (!frame || !source) return;
+    source.setTiles(this.radarTiles(frame.path));
+    this.settings.radarTime.set(frame.time);
   }
 
   /** Chase camera: centre on the selected flight and look along its heading. */

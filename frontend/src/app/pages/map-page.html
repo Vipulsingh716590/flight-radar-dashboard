@@ -1,46 +1,281 @@
-<div class="stage">
+<div class="stage" [class.has-flight]="hasFlight()" [class.panel-open]="panel() !== null">
   <app-live-map class="map" />
 
   <div class="kpi-overlay"><app-kpi-bar /></div>
 
   <app-flight-card class="flight-card" />
 
-  <div class="layers">
-    <button
-      type="button"
-      class="layers-btn"
-      data-testid="layers-button"
-      aria-haspopup="true"
-      [attr.aria-expanded]="layersOpen()"
-      (click)="toggleLayers()"
-    >
-      <app-icon name="layers" /> Layers
-    </button>
-
-    @if (layersOpen()) {
-      <div class="layers-panel" role="group" aria-label="Map layers" data-testid="layers-panel">
-        <p class="group-title">Colour planes by</p>
-        <div class="seg" role="group" aria-label="Colour planes by">
-          @for (mode of modes; track mode.id) {
-            <button
-              type="button"
-              [class.on]="settings.colorBy() === mode.id"
-              [attr.aria-pressed]="settings.colorBy() === mode.id"
-              (click)="settings.colorBy.set(mode.id)"
-            >
-              {{ mode.label }}
-            </button>
-          }
-        </div>
-
-        <label class="check">
-          <input type="checkbox" [checked]="settings.showAirports()" (change)="toggleAirports()" />
-          <span>Airports</span>
-        </label>
-      </div>
+  <!-- Tools: buttons top-right on desktop, a floating dock at the bottom on phones. -->
+  <nav class="dock" aria-label="Map tools" data-testid="map-tools">
+    @for (tool of tools; track tool.id) {
+      <button
+        type="button"
+        class="tool"
+        [class.on]="panel() === tool.id"
+        [attr.aria-pressed]="panel() === tool.id"
+        [attr.aria-expanded]="panel() === tool.id"
+        [attr.data-testid]="'tool-' + tool.id"
+        (click)="togglePanel(tool.id)"
+      >
+        <app-icon [name]="tool.icon" />
+        <span class="tool-label">{{ tool.label }}</span>
+        @if (tool.id === 'filters' && settings.activeFilterCount() > 0) {
+          <span class="count" data-testid="filter-count">{{ settings.activeFilterCount() }}</span>
+        }
+        @if (tool.id === 'weather' && settings.radar()) {
+          <span class="count live" aria-label="Radar on"></span>
+        }
+      </button>
     }
-  </div>
+  </nav>
 
+  @if (panel(); as open) {
+    <div class="sheet" role="dialog" [attr.aria-label]="open" [attr.data-testid]="'panel-' + open">
+      <header class="sheet-head">
+        <h2>{{ open === 'settings' ? 'Settings' : open === 'weather' ? 'Weather' : 'Filters' }}</h2>
+        <button type="button" class="sheet-close" aria-label="Close panel" (click)="closePanel()">
+          ×
+        </button>
+      </header>
+
+      <div class="sheet-body">
+        @switch (open) {
+          @case ('settings') {
+            <section class="group mobile-only">
+              <p class="group-title">Map view</p>
+              <div class="seg" role="group" aria-label="Map view">
+                @for (v of views; track v.id) {
+                  <button
+                    type="button"
+                    [class.on]="settings.view() === v.id"
+                    [attr.aria-pressed]="settings.view() === v.id"
+                    [attr.data-testid]="'settings-view-' + v.id"
+                    (click)="settings.view.set(v.id)"
+                  >
+                    <app-icon [name]="v.icon" /> {{ v.label }}
+                  </button>
+                }
+              </div>
+              <p class="hint">3D tilts the map with terrain; Globe shows the earth as a sphere.</p>
+            </section>
+
+            <section class="group">
+              <p class="group-title">Colour planes by</p>
+              <div class="seg" role="group" aria-label="Colour planes by">
+                @for (mode of modes; track mode.id) {
+                  <button
+                    type="button"
+                    [class.on]="settings.colorBy() === mode.id"
+                    [attr.aria-pressed]="settings.colorBy() === mode.id"
+                    (click)="settings.colorBy.set(mode.id)"
+                  >
+                    {{ mode.label }}
+                  </button>
+                }
+              </div>
+            </section>
+
+            <section class="group">
+              <p class="group-title">Units</p>
+              <div class="seg" role="group" aria-label="Units">
+                @for (u of unitOptions; track u.id) {
+                  <button
+                    type="button"
+                    [class.on]="settings.units() === u.id"
+                    [attr.aria-pressed]="settings.units() === u.id"
+                    [attr.data-testid]="'units-' + u.id"
+                    (click)="settings.units.set(u.id)"
+                  >
+                    {{ u.label }}
+                  </button>
+                }
+              </div>
+            </section>
+
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="settings.showAirports()"
+                (change)="toggleAirports()"
+              />
+              <span>Airports</span>
+            </label>
+          }
+
+          @case ('weather') {
+            <section class="group">
+              <label class="check first">
+                <input
+                  type="checkbox"
+                  data-testid="radar-toggle"
+                  [checked]="settings.radar()"
+                  (change)="toggleRadar()"
+                />
+                <span>Rain radar overlay</span>
+              </label>
+              @if (settings.radar()) {
+                <div class="radar-row">
+                  <button
+                    type="button"
+                    class="round"
+                    [attr.aria-label]="
+                      settings.radarPlaying() ? 'Pause radar loop' : 'Play radar loop'
+                    "
+                    (click)="settings.radarPlaying.set(!settings.radarPlaying())"
+                  >
+                    <app-icon [name]="settings.radarPlaying() ? 'pause' : 'play'" />
+                  </button>
+                  <span class="radar-time">
+                    @if (settings.radarError()) {
+                      Radar unavailable right now
+                    } @else if (radarClock()) {
+                      Radar frame {{ radarClock() }}
+                    } @else {
+                      Loading radar…
+                    }
+                  </span>
+                </div>
+              }
+            </section>
+
+            <section class="group">
+              <p class="group-title">Conditions · {{ placeLabel() }}</p>
+              @if (conditions(); as c) {
+                <div class="wx" data-testid="weather-now">
+                  <div class="wx-main">
+                    <span class="wx-temp">{{ c.tempC | number: '1.0-0' }}°C</span>
+                    <span class="wx-sky">{{ skyText() }}</span>
+                  </div>
+                  <dl class="wx-grid">
+                    <div>
+                      <dt>Wind</dt>
+                      <dd>{{ compass(c.windDir) }} {{ wind(c.windKt) }}</dd>
+                    </div>
+                    <div>
+                      <dt>Clouds</dt>
+                      <dd>{{ c.cloudPct | number: '1.0-0' }}%</dd>
+                    </div>
+                    <div>
+                      <dt>Visibility</dt>
+                      <dd>
+                        {{
+                          c.visibilityKm === null ? '—' : (c.visibilityKm | number: '1.0-0') + ' km'
+                        }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Pressure</dt>
+                      <dd>{{ c.pressureHpa | number: '1.0-0' }} hPa</dd>
+                    </div>
+                    <div>
+                      <dt>Rain</dt>
+                      <dd>{{ c.precipMm | number: '1.0-1' }} mm</dd>
+                    </div>
+                    <div>
+                      <dt>Jet-stream wind</dt>
+                      <dd>
+                        {{
+                          c.jetKt === null || c.jetDir === null
+                            ? '—'
+                            : compass(c.jetDir) + ' ' + wind(c.jetKt)
+                        }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p class="hint">Jet-stream wind is at about 34,000 ft (250 hPa).</p>
+                </div>
+              } @else if (weatherState() === 'error') {
+                <p class="hint warn">Weather could not be loaded.</p>
+                <button type="button" class="btn-accent small" (click)="retryWeather()">
+                  Try again
+                </button>
+              } @else {
+                <p class="hint">Loading weather…</p>
+              }
+              @if (conditions() && weatherState() === 'error') {
+                <p class="hint warn">Could not refresh; showing the last values.</p>
+              }
+            </section>
+
+            <p class="credit">
+              Data:
+              <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+              (conditions, wind) ·
+              <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>
+              (radar).
+            </p>
+          }
+
+          @case ('filters') {
+            <section class="group">
+              <p class="group-title">Route type</p>
+              <div class="chips">
+                @for (k of kinds; track k.id) {
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.off]="settings.hiddenKinds().has(k.id)"
+                    [style.--kind]="k.color"
+                    [attr.aria-pressed]="!settings.hiddenKinds().has(k.id)"
+                    [attr.data-testid]="'kind-' + k.id"
+                    (click)="settings.toggleKind(k.id)"
+                  >
+                    <i></i>{{ k.label }}
+                  </button>
+                }
+              </div>
+            </section>
+
+            <section class="group">
+              <p class="group-title">Altitude (ft)</p>
+              <div class="chips">
+                @for (b of bands; track b.id) {
+                  <button
+                    type="button"
+                    class="chip"
+                    [class.off]="settings.hiddenBands().has(b.id)"
+                    [style.--kind]="b.color"
+                    [attr.aria-pressed]="!settings.hiddenBands().has(b.id)"
+                    [attr.data-testid]="'band-' + b.id"
+                    (click)="settings.toggleBand(b.id)"
+                  >
+                    <i></i>{{ b.label }}
+                  </button>
+                }
+              </div>
+            </section>
+
+            <label class="check">
+              <input
+                type="checkbox"
+                data-testid="known-route-only"
+                [checked]="settings.knownRouteOnly()"
+                (change)="toggleKnownRoute()"
+              />
+              <span>Only flights with a known route</span>
+            </label>
+
+            <footer class="filter-foot">
+              <span data-testid="filter-summary"
+                >Showing {{ shown().shown | number }} of {{ shown().total | number }}</span
+              >
+              <button
+                type="button"
+                class="link"
+                data-testid="filters-reset"
+                [disabled]="settings.activeFilterCount() === 0"
+                (click)="settings.resetFilters()"
+              >
+                Reset
+              </button>
+            </footer>
+          }
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Desktop only: the 2D / 3D / Globe switch (on phones it lives in Settings). -->
   <div class="view-switch" role="group" aria-label="Map view" data-testid="view-switch">
     @for (v of views; track v.id) {
       <button
@@ -55,6 +290,20 @@
       </button>
     }
   </div>
+
+  <button
+    type="button"
+    class="locate"
+    data-testid="locate-button"
+    aria-label="Centre the map on my location"
+    title="My location"
+    (click)="locate()"
+  >
+    <app-icon name="locate" />
+  </button>
+  @if (locateError(); as message) {
+    <p class="toast" role="status" data-testid="locate-error">{{ message }}</p>
+  }
 
   <div class="legend" aria-label="Legend">
     @if (settings.colorBy() === 'altitude') {

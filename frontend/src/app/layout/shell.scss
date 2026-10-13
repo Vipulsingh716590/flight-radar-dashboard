@@ -201,6 +201,7 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .menu {
@@ -300,12 +301,21 @@
   }
 
   .top {
-    gap: 8px;
-    padding: 0 10px;
+    gap: 6px;
+    padding: 0 8px;
+  }
+
+  .right {
+    gap: 6px;
   }
 
   .feed-text {
     display: none;
+  }
+
+  .off {
+    padding: 3px 7px;
+    font-size: 10px;
   }
 
   .feed {

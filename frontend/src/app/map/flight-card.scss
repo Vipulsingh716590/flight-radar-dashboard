@@ -196,10 +196,31 @@ a.code:focus-visible {
 }
 
 .actions {
+  display: flex;
+  gap: 8px;
   padding: 4px 16px 14px;
 
   .btn-accent {
-    width: 100%;
+    flex: 1;
+  }
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--text) 8%, transparent);
   }
 }
 

@@ -34,8 +34,11 @@ Live air-traffic dashboard for India: planes currently airborne over India on a 
   its heading (dragging the map stops it). Altitude is shown by band, not metre-accurate.
 - **Phones**: the flight card is a bottom sheet with big origin/destination codes and a
   progress line; the Flights page shows route cards instead of a table.
-- The live map is full-bleed: counters float over its top-left, display options live in a
-  **Layers** popover, and the legend sits bottom-left.
+- The live map is full-bleed: counters float over its top-left and the legend sits bottom-left.
+  Three tools (**Settings**, **Weather**, **Filters**) are buttons at the top right on desktop and a
+  floating dock at the bottom on phones; each opens a popover (desktop) or a bottom sheet
+  (phones). On phones the 2D/3D/Globe switch is inside Settings, so nothing is pinned over the
+  counters or the flight card, and the dock steps aside while a flight card is open.
 
 Map features worth knowing:
 
@@ -43,6 +46,15 @@ Map features worth knowing:
   destination, trip progress, altitude, speed, vertical rate. When the position does not fit the
   callsign's route the card says so instead of drawing a progress bar.
 - **Recorded path**: the selected flight's track from the last 6 hours, from PostgreSQL history.
+- **Weather** (panel): a rain-radar overlay with a play/pause loop (RainViewer) and current
+  conditions for the selected flight or the map centre: temperature, sky, wind, clouds, visibility,
+  pressure, rain, and the wind at ~34,000 ft (Open-Meteo).
+- **Filters** (panel): hide route types or altitude bands, or show only flights with a known route;
+  the button shows how many filters are active and the panel "Showing X of Y". The selected flight
+  always stays visible.
+- **Units** (Settings): aviation (ft, kt, ft/min) or metric (m, km/h, m/s) on the flight card.
+- **Share** on the flight card copies a link (`/?flight=<icao24>`) that opens the map on that flight.
+- **My location** button centres the map on the device position (browser permission required).
 - **Colour by** route type or altitude; **airport pins** (click for the board); live
   "aircraft in view" count.
 
@@ -204,6 +216,16 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
 - **airplanes.live** now requires approval from its operators before API use, so it is not
   wired in. The provider interface (`backend/src/ingest/aircraft.ts`) makes adding it easy.
 - Basemap: OpenFreeMap (OpenStreetMap data). Map borders are as drawn by OSM.
+- **Terrain**: Terrarium elevation tiles (`s3.amazonaws.com/elevation-tiles-prod`), 3D view only.
+- **Weather**, called from the browser, no API key:
+  - [Open-Meteo](https://open-meteo.com) `api.open-meteo.com/v1/forecast`: current conditions and
+    the 250 hPa wind. Free for non-commercial use; credit Open-Meteo.
+  - [RainViewer](https://www.rainviewer.com/api.html) `api.rainviewer.com/public/weather-maps.json`
+    plus `tilecache.rainviewer.com` radar tiles (free tiles are limited to zoom 7 and are scaled
+    up beyond that). Credit RainViewer.
+  These hosts must be allowed by the Content-Security-Policy (`frontend/public/_headers`,
+  `frontend/nginx/security-headers.conf`, `netlify.toml`); the Permissions-Policy allows
+  `geolocation=(self)` for the location button.
 
 ## Known limitations
 

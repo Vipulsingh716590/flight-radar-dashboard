@@ -93,6 +93,9 @@
         >
           {{ following() ? 'Stop following' : 'Follow in 3D' }}
         </button>
+        <button type="button" class="btn-ghost" data-testid="share-button" (click)="share()">
+          <app-icon name="share" /> {{ copied() ? 'Link copied' : 'Share' }}
+        </button>
       </div>
 
       @if (f.origin || f.destination) {
@@ -103,12 +106,20 @@
       }
     } @else {
       <header>
-        <div class="title"><h2>Out of range</h2></div>
+        <div class="title">
+          <h2>{{ hasData() ? 'Out of range' : 'Loading flight…' }}</h2>
+        </div>
         <button type="button" class="close" (click)="close()" aria-label="Close flight details">
           ×
         </button>
       </header>
-      <p class="note">This flight is no longer being received over India.</p>
+      <p class="note">
+        {{
+          hasData()
+            ? 'This flight is no longer being received over India.'
+            : 'Waiting for live data.'
+        }}
+      </p>
     }
   </aside>
 }

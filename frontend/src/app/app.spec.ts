@@ -275,13 +275,13 @@ describe('pages and navigation', () => {
       const { fixture, root } = await open('/');
       expect(root.querySelector('.legend-title')?.textContent).toContain('Route type');
 
-      // Display options live in the "Layers" popover.
-      expect(root.querySelector('[data-testid="layers-panel"]')).toBeNull();
-      root.querySelector<HTMLButtonElement>('[data-testid="layers-button"]')!.click();
+      // Display options live in the Settings panel.
+      expect(root.querySelector('[data-testid="panel-settings"]')).toBeNull();
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-settings"]')!.click();
       await fixture.whenStable();
 
       const altitude = [
-        ...root.querySelectorAll<HTMLButtonElement>('[data-testid="layers-panel"] .seg button'),
+        ...root.querySelectorAll<HTMLButtonElement>('[data-testid="panel-settings"] .seg button'),
       ].find((b) => b.textContent?.includes('Altitude'))!;
       altitude.click();
       await fixture.whenStable();
@@ -289,6 +289,80 @@ describe('pages and navigation', () => {
       expect(TestBed.inject(MapSettings).colorBy()).toBe('altitude');
       expect(root.querySelector('.legend-title')?.textContent).toContain('Altitude');
       expect(root.querySelectorAll('.legend .item').length).toBe(7);
+    });
+
+    it('filters planes by route type and altitude and counts active filters', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      const low = { ...SIA317, id: 'low001', alt: 500, kind: 'arrival' as const };
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317, low]));
+
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-filters"]')!.click();
+      await fixture.whenStable();
+      expect(root.querySelector('[data-testid="filter-summary"]')?.textContent).toContain(
+        'Showing 2 of 2',
+      );
+
+      root.querySelector<HTMLButtonElement>('[data-testid="kind-arrival"]')!.click();
+      await fixture.whenStable();
+      expect(settings.hiddenKinds().has('arrival')).toBe(true);
+      expect(root.querySelector('[data-testid="filter-summary"]')?.textContent).toContain(
+        'Showing 1 of 2',
+      );
+      expect(root.querySelector('[data-testid="filter-count"]')?.textContent).toContain('1');
+
+      root.querySelector<HTMLButtonElement>('[data-testid="filters-reset"]')!.click();
+      await fixture.whenStable();
+      expect(settings.activeFilterCount()).toBe(0);
+      expect(root.querySelector('[data-testid="filter-count"]')).toBeNull();
+    });
+
+    it('shows weather from Open-Meteo for the map centre', async () => {
+      signIn();
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            current: {
+              temperature_2m: 26.7,
+              wind_speed_10m: 12,
+              wind_direction_10m: 90,
+              cloud_cover: 40,
+              precipitation: 0,
+              weather_code: 2,
+              visibility: 9000,
+              pressure_msl: 1012,
+              time: '2026-10-13T16:45',
+            },
+            hourly: { wind_speed_250hPa: [55], wind_direction_250hPa: [286] },
+          }),
+          { status: 200 },
+        ),
+      );
+      const { fixture, root } = await open('/');
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-weather"]')!.click();
+      await fixture.whenStable();
+      await fixture.whenStable();
+
+      const text = root.querySelector('[data-testid="weather-now"]')?.textContent ?? '';
+      expect(text).toContain('27°C');
+      expect(text).toContain('Partly cloudy');
+      expect(text).toContain('E 12 kt');
+      expect(text).toContain('WNW 55 kt');
+      expect(String(fetchSpy.mock.calls[0]![0])).toContain('api.open-meteo.com');
+      fetchSpy.mockRestore();
+    });
+
+    it('switches units on the flight card', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317]));
+      TestBed.inject(FlightSelection).select(SIA317.id);
+      TestBed.inject(MapSettings).units.set('metric');
+      await fixture.whenStable();
+      const text = root.querySelector('app-flight-card')?.textContent ?? '';
+      expect(text).toContain('km/h');
+      expect(text).not.toContain('36,089 ft');
     });
 
     it('reports how many aircraft are in view', async () => {
