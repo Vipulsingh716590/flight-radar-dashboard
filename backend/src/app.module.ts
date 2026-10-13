@@ -113,7 +113,12 @@ class DatabaseLifecycle implements OnModuleDestroy {
       provide: INDIA_FILTER,
       inject: [APP_CONFIG],
       useFactory: (config: ReturnType<typeof loadConfig>) =>
-        loadIndiaFilter(config.indiaGeoJsonPath, config.indiaBufferKm, config.neighboursGeoJsonPath),
+        loadIndiaFilter(
+          config.indiaGeoJsonPath,
+          config.indiaBufferKm,
+          config.neighboursGeoJsonPath,
+          config.indiaBufferedGeoJsonPath,
+        ),
     },
     {
       provide: FLIGHT_PROVIDERS,

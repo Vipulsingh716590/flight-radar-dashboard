@@ -74,3 +74,38 @@ describe('IndiaFilter (real India boundary)', () => {
     expect(withBuffer.contains(31.55, 74.34)).toBe(false);
   });
 });
+
+describe('IndiaFilter (pre-built buffered area)', () => {
+  const computed = loadIndiaFilter('data/india.geojson', 50, 'data/neighbours.geojson');
+  const prebuilt = loadIndiaFilter(
+    'data/india.geojson',
+    50,
+    'data/neighbours.geojson',
+    'data/india-buffered.geojson',
+  );
+
+  it.each([
+    ['Delhi', 28.61, 77.21, true],
+    ['offshore Mumbai (20 km)', 19.08, 72.7, true],
+    ['Chennai', 13.08, 80.27, true],
+    ['Lahore (buffer must not reach neighbouring land)', 31.55, 74.34, false],
+    ['Karachi', 24.86, 67.0, false],
+    ['Colombo', 6.93, 79.86, false],
+    ['Dubai', 25.2, 55.27, false],
+  ])('%s gives the same answer as buffering at start-up', (_name, lat, lon, expected) => {
+    expect(prebuilt.contains(lat, lon)).toBe(expected);
+    expect(prebuilt.contains(lat, lon)).toBe(computed.contains(lat, lon));
+  });
+
+  it('ignores a pre-built file made for a different buffer distance', () => {
+    // 50 km file, 150 km requested: it must be recomputed, so ~100 km offshore is still India.
+    const wide = loadIndiaFilter('data/india.geojson', 150, undefined, 'data/india-buffered.geojson');
+    expect(wide.contains(19.08, 71.8)).toBe(true); // ~100 km west of Mumbai
+    expect(prebuilt.contains(19.08, 71.8)).toBe(false);
+  });
+
+  it('falls back to buffering when the pre-built file is missing', () => {
+    const fallback = loadIndiaFilter('data/india.geojson', 50, undefined, 'data/does-not-exist.geojson');
+    expect(fallback.contains(19.08, 72.7)).toBe(true);
+  });
+});

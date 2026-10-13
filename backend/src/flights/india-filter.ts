@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import buffer from '@turf/buffer';
 import { point } from '@turf/helpers';
@@ -67,10 +67,20 @@ export function loadIndiaFilter(
   path: string,
   bufferKm: number,
   neighboursPath?: string,
+  precomputedPath?: string,
 ): IndiaFilter {
   const strict = readArea(path);
-  const buffered =
-    bufferKm > 0 ? (buffer(strict, bufferKm, { units: 'kilometers' }) as IndiaArea) : strict;
+  let buffered = strict;
+  if (bufferKm > 0) {
+    // Buffering the full border needs a lot of heap and CPU (too much for a small
+    // free host), so a pre-built file (scripts/build-india-area.mjs) is preferred.
+    const precomputed = precomputedPath && existsSync(precomputedPath) ? readArea(precomputedPath) : null;
+    const precomputedKm = (precomputed?.properties as { bufferKm?: number } | null)?.bufferKm;
+    buffered =
+      precomputed && precomputedKm === bufferKm
+        ? precomputed
+        : (buffer(strict, bufferKm, { units: 'kilometers' }) as IndiaArea);
+  }
   const neighbours = neighboursPath && bufferKm > 0 ? readArea(neighboursPath) : null;
   return new IndiaFilter(strict, buffered, neighbours);
 }

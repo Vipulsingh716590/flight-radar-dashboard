@@ -44,6 +44,8 @@ export interface AppConfig {
   indiaGeoJsonPath: string;
   /** Land of neighbouring countries; the buffer never applies over it. */
   neighboursGeoJsonPath: string;
+  /** India polygon already buffered by INDIA_BUFFER_KM (see scripts/build-india-area.mjs). */
+  indiaBufferedGeoJsonPath: string;
   /** Indian airports (from OurAirports) used to tag arrivals/departures. */
   airportsJsonPath: string;
   /** PostgreSQL connection string (required). */
@@ -85,6 +87,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     indiaBufferKm: num(env.INDIA_BUFFER_KM, 50, 0),
     indiaGeoJsonPath: env.INDIA_GEOJSON_PATH?.trim() || 'data/india.geojson',
     neighboursGeoJsonPath: env.NEIGHBOURS_GEOJSON_PATH?.trim() || 'data/neighbours.geojson',
+    indiaBufferedGeoJsonPath:
+      env.INDIA_BUFFERED_GEOJSON_PATH?.trim() || 'data/india-buffered.geojson',
     airportsJsonPath: env.AIRPORTS_JSON_PATH?.trim() || 'data/airports-in.json',
     databaseUrl: env.DATABASE_URL?.trim() ?? '',
     databaseSsl: parseSsl(env.DATABASE_SSL),
