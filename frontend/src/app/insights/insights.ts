@@ -15,7 +15,16 @@ import { KIND_COLOR } from '../core/format';
 const REFRESH_MS = 60_000;
 const WINDOWS = [6, 24, 72] as const;
 /** Categorical palette for airlines; "Other" is always the neutral grey. */
-const AIRLINE_COLORS = ['#4cc9f0', '#ffb703', '#3ddc84', '#b388ff', '#ff7aa2', '#ff9f43', '#5eead4', '#a3e635'];
+const AIRLINE_COLORS = [
+  '#4cc9f0',
+  '#ffb703',
+  '#3ddc84',
+  '#b388ff',
+  '#ff7aa2',
+  '#ff9f43',
+  '#5eead4',
+  '#a3e635',
+];
 const OTHER_COLOR = '#566370';
 
 /** Historical charts built from PostgreSQL: traffic mix, busiest airports, airline share. */
@@ -69,7 +78,11 @@ export class Insights implements OnDestroy {
         maintainAspectRatio: false,
         scales: {
           x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Avg airborne flights' } },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            title: { display: true, text: 'Avg airborne flights' },
+          },
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 10 } },
@@ -87,15 +100,27 @@ export class Insights implements OnDestroy {
       data: {
         labels,
         datasets: [
-          { label: 'Arriving', data: airports.map((a) => a.arrivals), backgroundColor: KIND_COLOR.arrival },
-          { label: 'Departing', data: airports.map((a) => a.departures), backgroundColor: KIND_COLOR.departure },
+          {
+            label: 'Arriving',
+            data: airports.map((a) => a.arrivals),
+            backgroundColor: KIND_COLOR.arrival,
+          },
+          {
+            label: 'Departing',
+            data: airports.map((a) => a.departures),
+            backgroundColor: KIND_COLOR.departure,
+          },
         ],
       },
       options: {
         indexAxis: 'y',
         maintainAspectRatio: false,
         scales: {
-          x: { stacked: true, beginAtZero: true, title: { display: true, text: 'Distinct flights' } },
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            title: { display: true, text: 'Distinct flights' },
+          },
           y: { stacked: true },
         },
         plugins: {
@@ -143,12 +168,18 @@ export class Insights implements OnDestroy {
         maintainAspectRatio: false,
         cutout: '55%',
         plugins: {
-          legend: { position: 'right', labels: { boxWidth: 10 } },
+          legend: {
+            // Beside the ring on wide screens, under it on phones (long airline names).
+            position: typeof innerWidth === 'number' && innerWidth < 640 ? 'bottom' : 'right',
+            labels: { boxWidth: 10 },
+          },
           tooltip: {
             callbacks: {
               label: (item) => {
                 const airline = airlines[item.dataIndex];
-                return airline ? `${airline.airline}: ${airline.flights} flights (${airline.share}%)` : '';
+                return airline
+                  ? `${airline.airline}: ${airline.flights} flights (${airline.share}%)`
+                  : '';
               },
             },
           },

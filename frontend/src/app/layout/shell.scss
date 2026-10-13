@@ -99,10 +99,10 @@
 
 .right {
   display: flex;
+  flex: none; /* never squeezed: the search box gives way instead */
   align-items: center;
   gap: 10px;
   margin-left: auto;
-  min-width: 0;
 }
 
 .feed {

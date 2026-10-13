@@ -575,12 +575,13 @@
 }
 
 /* ---- phones ---------------------------------------------------------------------------
-   Nothing is pinned to the top-right any more: the tools become a floating dock at the
-   bottom (icon over label), their panels bottom sheets above it, and the 2D/3D/Globe
-   switch moves into Settings so it can never overlap the counters or the flight card. */
+   The tools sit in a slim icon rail on the right edge, under the counters, and open as a
+   bottom sheet above the tab bar. Nothing floats over the bottom of the map any more, so
+   the attribution, the "in view" chip and the flight card all have room. The 2D/3D/Globe
+   switch lives in Settings. The rail steps aside while a flight card is open. */
 @media (max-width: 760px) {
   .kpi-overlay {
-    right: 10px;
+    right: 62px;
   }
 
   .mobile-only {
@@ -593,66 +594,65 @@
   }
 
   .dock {
-    top: auto;
-    right: auto;
-    bottom: 12px;
-    left: 50%;
-    gap: 2px;
-    padding: 6px;
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    background: var(--overlay);
-    backdrop-filter: var(--glass);
-    box-shadow: var(--shadow);
-    transform: translateX(-50%);
+    top: 78px;
+    right: 8px;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .tool {
-    flex-direction: column;
-    gap: 3px;
-    min-width: 66px;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 18px;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    font-size: 12px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 20px;
 
-    app-icon {
-      font-size: 22px;
-    }
-
-    &.on {
-      background: color-mix(in srgb, var(--accent) 18%, transparent);
+    .tool-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
 
   .count {
     position: absolute;
-    top: 2px;
-    right: 14px;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
   }
 
+  .count.live {
+    top: 2px;
+    right: 2px;
+  }
+
+  /* Directly under the four tool buttons: 78px + 4 x 44px + 3 x 8px gaps + 8px. */
+  .locate {
+    top: 286px;
+    right: 8px;
+    bottom: auto;
+    width: 44px;
+    height: 44px;
+  }
+
+  /* Leaves the tool rail uncovered so another tool can be tapped directly. */
   .sheet {
     top: auto;
-    right: 8px;
-    bottom: 100px;
+    right: 60px;
+    bottom: 8px;
     left: 8px;
     width: auto;
-    max-height: min(62%, calc(100% - 130px));
-  }
-
-  .locate {
-    bottom: 140px;
-    width: 40px;
-    height: 40px;
+    max-height: min(72%, calc(100% - 90px));
   }
 
   .in-view {
     right: auto;
-    bottom: 100px;
-    left: 10px;
+    bottom: 34px;
+    left: 8px;
   }
 
   .flight-card {
@@ -663,23 +663,38 @@
     max-height: 62%;
   }
 
-  /* A selected flight's card takes the bottom; the dock steps aside until it is closed. */
+  .toast {
+    bottom: 60px;
+  }
+
+  /* A selected flight's card takes the bottom; the tools step aside until it is closed. */
   .has-flight {
     .dock,
     .locate,
     .in-view {
       display: none;
     }
+
+    .kpi-overlay {
+      right: 10px;
+    }
   }
 
   /* An open panel and the card would overlap, so the panel wins. */
   .panel-open .flight-card,
-  .panel-open .in-view,
-  .panel-open .locate {
+  .panel-open .in-view {
     display: none;
   }
+}
 
-  .has-flight .sheet {
-    bottom: 8px;
+/* Very narrow phones (320px): tighter counters. */
+@media (max-width: 360px) {
+  .kpi-overlay {
+    right: 58px;
+  }
+
+  .sheet {
+    right: 56px;
+    left: 6px;
   }
 }

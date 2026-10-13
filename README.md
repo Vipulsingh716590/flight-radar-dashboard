@@ -35,10 +35,11 @@ Live air-traffic dashboard for India: planes currently airborne over India on a 
 - **Phones**: the flight card is a bottom sheet with big origin/destination codes and a
   progress line; the Flights page shows route cards instead of a table.
 - The live map is full-bleed: counters float over its top-left and the legend sits bottom-left.
-  Three tools (**Settings**, **Weather**, **Filters**) are buttons at the top right on desktop and a
-  floating dock at the bottom on phones; each opens a popover (desktop) or a bottom sheet
-  (phones). On phones the 2D/3D/Globe switch is inside Settings, so nothing is pinned over the
-  counters or the flight card, and the dock steps aside while a flight card is open.
+  Tools (**Settings**, **Weather**, **Filters**, **Saved**) are buttons at the top right on desktop
+  and a slim icon rail on the right edge on phones (under the counters, with My location below it);
+  each opens a popover (desktop) or a bottom sheet next to the rail (phones). On phones the
+  2D/3D/Globe switch is inside Settings, the bottom of the map is left free for the attribution,
+  and the rail steps aside while a flight card is open.
 
 Map features worth knowing:
 
