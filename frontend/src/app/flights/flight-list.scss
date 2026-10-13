@@ -189,3 +189,139 @@ td > span {
   text-align: center;
   color: var(--muted);
 }
+
+/* Phone cards: airline + callsign, big codes joined by a plane line (as in the reference design). */
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--overlay);
+  backdrop-filter: var(--glass);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-title {
+  display: inline-flex;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.pills {
+  display: flex;
+  gap: 6px;
+}
+
+.pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.card-airline {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card-route {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.stop {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 38%;
+
+  &.right {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.iata {
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+}
+
+.stop .city {
+  overflow: hidden;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  margin-bottom: 14px;
+  border-radius: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--text) 18%, transparent)
+  );
+
+  b {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--accent);
+    font-size: 17px;
+    line-height: 1;
+  }
+}
+
+.card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+
+  span {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -41,6 +41,21 @@
     }
   </div>
 
+  <div class="view-switch" role="group" aria-label="Map view" data-testid="view-switch">
+    @for (v of views; track v.id) {
+      <button
+        type="button"
+        [class.on]="settings.view() === v.id"
+        [attr.aria-pressed]="settings.view() === v.id"
+        [attr.data-testid]="'view-' + v.id"
+        [title]="v.hint"
+        (click)="settings.view.set(v.id)"
+      >
+        <app-icon [name]="v.icon" /> {{ v.label }}
+      </button>
+    }
+  </div>
+
   <div class="legend" aria-label="Legend">
     @if (settings.colorBy() === 'altitude') {
       <span class="legend-title">Altitude (ft)</span>
@@ -56,6 +71,8 @@
   </div>
 
   @if (settings.inView() !== null) {
-    <div class="in-view" data-testid="in-view">{{ settings.inView() | number }} aircraft in view</div>
+    <div class="in-view" data-testid="in-view">
+      {{ settings.inView() | number }} aircraft in view
+    </div>
   }
 </div>

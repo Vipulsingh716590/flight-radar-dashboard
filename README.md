@@ -24,8 +24,16 @@ Live air-traffic dashboard for India: planes currently airborne over India on a 
 - **Top bar**: one search box for flights and airports, feed health (Live / partial / stale /
   sources down, with the age of the data), **light/dark theme** switch and the **account menu**
   (email, role, sign out). Locally with sign-in off it shows a "Login off" tag instead.
-- **Themes**: dark and light. The choice is remembered; without one the system preference decides.
-  The map basemap and the charts follow the theme.
+- **Themes**: Dark, Light and **Glass** (blue-grey, translucent panels, lime accent), picked from the
+  palette button. The choice is remembered; without one the system preference decides. The map
+  basemap and the charts follow the theme.
+- **3D**: the map has a **2D / 3D / Globe** switch. *3D* tilts the map and adds terrain (free
+  Terrarium elevation tiles from `s3.amazonaws.com`) and 3D buildings at high zoom; planes float
+  above a ground shadow in proportion to their altitude band. *Globe* shows the earth as a sphere.
+  *Follow in 3D* on the flight card is a chase camera that keeps the flight centred and looks along
+  its heading (dragging the map stops it). Altitude is shown by band, not metre-accurate.
+- **Phones**: the flight card is a bottom sheet with big origin/destination codes and a
+  progress line; the Flights page shows route cards instead of a table.
 - The live map is full-bleed: counters float over its top-left, display options live in a
   **Layers** popover, and the legend sits bottom-left.
 

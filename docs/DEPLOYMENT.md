@@ -220,7 +220,7 @@ Option A avoids the problem entirely because the browser only talks to one origi
 | Browser console: CORS error | `FRONTEND_ORIGIN` differs from the page origin by scheme/host/port |
 | Console: "Refused to connect ... Content Security Policy" | API origin missing from `connect-src` (cross-origin setup) |
 | Dashboard loads but stays "Connecting…" | A proxy buffers the stream. nginx and Caddy configs here disable buffering; check any extra proxy |
-| Map is blank | Basemap tiles blocked (CSP `img-src`/`connect-src` must allow `tiles.openfreemap.org`) |
+| Map is blank | Basemap tiles blocked (CSP `img-src`/`connect-src` must allow `tiles.openfreemap.org`; the 3D terrain also needs `s3.amazonaws.com`) |
 | 429 on login | Rate limit; wait the `Retry-After` seconds, or see `LOGIN_*` settings |
 | Render build: `npm ci ... Missing: typescript@... from lock file` | Image uses npm 10; the Dockerfiles must use `node:24-alpine` (npm 11) |
 | Render: `Exited with status 1` right after "Starting Nest application" | Read the log lines above it. `FATAL: ... ADMIN_EMAIL is not a valid email address`, `ADMIN_PASSWORD must be at least 12 characters`, or `... is not set` |

@@ -30,24 +30,55 @@
           data-testid="feed-status"
           [title]="feedSource() ? 'Source: ' + feedSource() : ''"
         >
-          <i class="dot"></i><span class="feed-text">{{ feedLabel() }}@if (feedAge(); as age) { · {{ age }} }</span>
+          <i class="dot"></i
+          ><span class="feed-text"
+            >{{ feedLabel() }}
+            @if (feedAge(); as age) {
+              · {{ age }}
+            }
+          </span>
         </span>
 
-        <button
-          type="button"
-          class="icon-btn"
-          data-testid="theme-toggle"
-          (click)="themeService.toggle()"
-          [attr.aria-label]="themeService.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
-          [title]="themeService.theme() === 'dark' ? 'Light theme' : 'Dark theme'"
-        >
-          <app-icon [name]="themeService.theme() === 'dark' ? 'sun' : 'moon'" />
-        </button>
+        <div class="themes">
+          <button
+            type="button"
+            class="icon-btn"
+            data-testid="theme-toggle"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="themeMenuOpen()"
+            aria-label="Choose theme"
+            title="Theme"
+            (click)="toggleThemeMenu()"
+          >
+            <app-icon name="palette" />
+          </button>
+
+          @if (themeMenuOpen()) {
+            <div class="menu theme-menu" role="menu" data-testid="theme-menu">
+              @for (t of themes; track t.id) {
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  class="menu-item"
+                  [class.on]="themeService.theme() === t.id"
+                  [attr.aria-checked]="themeService.theme() === t.id"
+                  [attr.data-testid]="'theme-' + t.id"
+                  (click)="pickTheme(t.id)"
+                >
+                  <i class="swatch" [attr.data-swatch]="t.id"></i> {{ t.label }}
+                </button>
+              }
+            </div>
+          }
+        </div>
 
         <div class="account">
           @if (authDisabled()) {
-            <span class="off" data-testid="auth-off"
-              title="The server runs with AUTH_DISABLED=true: nobody has to sign in. Local development only.">
+            <span
+              class="off"
+              data-testid="auth-off"
+              title="The server runs with AUTH_DISABLED=true: nobody has to sign in. Local development only."
+            >
               Login off
             </span>
           } @else if (user(); as current) {

@@ -55,7 +55,9 @@
   color: var(--muted);
   font-size: 20px;
   text-decoration: none;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   .label {
     font-size: 11px;
@@ -92,6 +94,7 @@
   padding: 0 14px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  backdrop-filter: var(--glass);
 }
 
 .right {
@@ -156,8 +159,37 @@
   font-weight: 700;
 }
 
-.account {
+.account,
+.themes {
   position: relative;
+}
+
+.theme-menu {
+  min-width: 170px;
+}
+
+.menu-item.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  font-weight: 700;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+
+  &[data-swatch='dark'] {
+    background: linear-gradient(135deg, #0f1419 55%, #ffb703 55%);
+  }
+
+  &[data-swatch='light'] {
+    background: linear-gradient(135deg, #f3f5f8 55%, #b86e00 55%);
+  }
+
+  &[data-swatch='glass'] {
+    background: linear-gradient(135deg, #1c2634 55%, #d4f54a 55%);
+  }
 }
 
 .off {

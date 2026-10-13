@@ -13,6 +13,10 @@
   --overlay: color-mix(in srgb, var(--surface) 92%, transparent);
   --rail-width: 76px;
   --topbar-height: 56px;
+  /* Text on top of --accent (buttons), card corner radius and glass blur. */
+  --on-accent: #1a1300;
+  --radius: 14px;
+  --glass: none;
   color-scheme: dark;
 }
 
@@ -28,7 +32,54 @@
   --warn: #a85f00;
   --bad: #d12f2f;
   --shadow: 0 8px 24px rgb(20 30 45 / 14%);
+  --on-accent: #ffffff;
   color-scheme: light;
+}
+
+/* Glass: dark blue-grey, translucent panels over the map, lime call-to-action. */
+:root[data-theme='glass'] {
+  --bg: #121924;
+  --surface: #1c2634;
+  --border: rgb(255 255 255 / 13%);
+  --text: #eef3fa;
+  --muted: #9dacc0;
+  --accent: #d4f54a;
+  --ok: #7be495;
+  --warn: #ffc857;
+  --bad: #ff7b7b;
+  --shadow: 0 14px 36px rgb(0 0 0 / 45%);
+  --overlay: color-mix(in srgb, var(--surface) 66%, transparent);
+  --on-accent: #17210a;
+  --radius: 20px;
+  --glass: blur(16px) saturate(150%);
+  color-scheme: dark;
+}
+
+:root[data-theme='glass'] body {
+  background:
+    radial-gradient(900px 500px at 15% -10%, rgb(70 110 160 / 35%), transparent 60%),
+    radial-gradient(700px 500px at 100% 110%, rgb(120 160 40 / 16%), transparent 60%), var(--bg);
+}
+
+/* Primary call-to-action, shared by every component. */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.06);
+  }
 }
 
 * {
@@ -54,7 +105,12 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 }
 
 /* Map popup (rendered by MapLibre outside component styles) */

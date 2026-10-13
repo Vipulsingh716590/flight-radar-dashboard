@@ -14,7 +14,7 @@ import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import { FEED_LABEL } from '../core/format';
 import { Icon } from '../core/icon';
-import { ThemeService } from '../core/theme';
+import { THEMES, ThemeService, type Theme } from '../core/theme';
 import { GlobalSearch } from './global-search';
 
 /**
@@ -49,6 +49,8 @@ export class Shell implements OnDestroy {
   ];
 
   protected readonly menuOpen = signal(false);
+  protected readonly themeMenuOpen = signal(false);
+  protected readonly themes = THEMES;
 
   protected readonly initial = computed(() => (this.user()?.email ?? '?').charAt(0).toUpperCase());
   protected readonly feedLabel = computed(() => FEED_LABEL[this.stream.state()]);
@@ -67,7 +69,18 @@ export class Shell implements OnDestroy {
   }
 
   protected toggleMenu(): void {
+    this.themeMenuOpen.set(false);
     this.menuOpen.update((open) => !open);
+  }
+
+  protected toggleThemeMenu(): void {
+    this.menuOpen.set(false);
+    this.themeMenuOpen.update((open) => !open);
+  }
+
+  protected pickTheme(theme: Theme): void {
+    this.themeService.set(theme);
+    this.themeMenuOpen.set(false);
   }
 
   protected logout(): void {
@@ -78,14 +91,17 @@ export class Shell implements OnDestroy {
   /** Closes the account menu on a click anywhere outside it. */
   @HostListener('document:click', ['$event'])
   protected onDocumentClick(event: MouseEvent): void {
-    if (!this.menuOpen()) return;
-    const menu = this.host.nativeElement.querySelector('.account');
-    if (menu && !menu.contains(event.target as Node)) this.menuOpen.set(false);
+    const target = event.target as Node;
+    const inside = (selector: string) =>
+      !!this.host.nativeElement.querySelector(selector)?.contains(target);
+    if (this.menuOpen() && !inside('.account')) this.menuOpen.set(false);
+    if (this.themeMenuOpen() && !inside('.themes')) this.themeMenuOpen.set(false);
   }
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
     this.menuOpen.set(false);
+    this.themeMenuOpen.set(false);
   }
 
   ngOnDestroy(): void {

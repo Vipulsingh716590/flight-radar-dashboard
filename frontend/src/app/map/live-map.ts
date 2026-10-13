@@ -23,7 +23,7 @@ import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
-import { MapSettings } from '../core/map-settings';
+import { MapSettings, type MapView } from '../core/map-settings';
 import { ThemeService, type Theme } from '../core/theme';
 
 const PLANES = 'planes';
@@ -35,6 +35,19 @@ const AIRPORT_LABEL_MAJOR = 'airports-label-major';
 const AIRPORT_LABEL_MINOR = 'airports-label-minor';
 const TRACK = 'track';
 const TRACK_LAYER = 'track-line';
+const DEM = 'terrain-dem';
+const BUILDINGS_LAYER = 'buildings-3d';
+const SHADOW_LAYER = 'planes-shadow';
+/** Free elevation tiles (Mapzen Terrarium encoding), no key needed. */
+const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+/** Camera used while following a flight. */
+const FOLLOW_PITCH = 62;
+const FOLLOW_ZOOM = 9;
+const TILT_PITCH = 60;
+const TILT_BEARING = -18;
+const MAX_ZOOM_BY_VIEW: Record<MapView, number> = { '2d': 11, '3d': 15, globe: 11 };
+/** Vertical screen offset per altitude band, so higher planes float above their shadow in 3D. */
+const LIFT_PX = 14;
 /** How often markers are advanced along their heading between data refreshes. */
 const TICK_MS = 1000;
 /** Zoom level used when another page/list asks the map to focus a flight. */
@@ -51,12 +64,44 @@ const TRACK_HOURS = 6;
 const BASEMAP_STYLES: Record<Theme, string> = {
   dark: 'https://tiles.openfreemap.org/styles/dark',
   light: 'https://tiles.openfreemap.org/styles/positron',
+  glass: 'https://tiles.openfreemap.org/styles/dark',
 };
 
 /** Colours that must contrast with the basemap, per theme. */
-const MAP_INK: Record<Theme, { track: string; ring: string; label: string; halo: string; stroke: string }> = {
-  dark: { track: '#ffffff', ring: '#ffffff', label: '#a9c4ff', halo: '#0f1419', stroke: '#0f1419' },
-  light: { track: '#16202a', ring: '#16202a', label: '#1f4fa3', halo: '#ffffff', stroke: '#ffffff' },
+interface MapInk {
+  track: string;
+  ring: string;
+  label: string;
+  halo: string;
+  stroke: string;
+  building: string;
+}
+
+const MAP_INK: Record<Theme, MapInk> = {
+  dark: {
+    track: '#ffffff',
+    ring: '#ffffff',
+    label: '#a9c4ff',
+    halo: '#0f1419',
+    stroke: '#0f1419',
+    building: '#3a4656',
+  },
+  light: {
+    track: '#16202a',
+    ring: '#16202a',
+    label: '#1f4fa3',
+    halo: '#ffffff',
+    stroke: '#ffffff',
+    building: '#c5ccd6',
+  },
+  glass: {
+    track: '#d4f54a',
+    ring: '#d4f54a',
+    label: '#c9e8ff',
+    halo: '#121924',
+    stroke: '#121924',
+    building: '#3b4a60',
+  },
 };
 
 const kindIcon = (kind: FlightKind) => `plane-${kind}`;
@@ -72,8 +117,14 @@ const bandIcon = (band: number) => `plane-alt-${band}`;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: '<div #container class="map"></div>',
   styles: `
-    :host { display: block; position: relative; }
-    .map { position: absolute; inset: 0; }
+    :host {
+      display: block;
+      position: relative;
+    }
+    .map {
+      position: absolute;
+      inset: 0;
+    }
   `,
 })
 export class LiveMap implements OnDestroy {
@@ -97,6 +148,7 @@ export class LiveMap implements OnDestroy {
   private pins: AirportPin[] | null = null;
   private appliedTheme: Theme | null = null;
   private listenersBound = false;
+  private appliedView: MapView = '2d';
 
   constructor() {
     afterNextRender(() => this.init());
@@ -112,6 +164,17 @@ export class LiveMap implements OnDestroy {
     effect(() => {
       const theme = this.themeService.theme();
       untracked(() => this.applyTheme(theme));
+    });
+    effect(() => {
+      const view = this.settings.view();
+      untracked(() => {
+        if (view !== '3d') this.settings.follow.set(false);
+        this.applyView(view);
+      });
+    });
+    effect(() => {
+      this.settings.follow();
+      untracked(() => this.render());
     });
     effect(() => {
       const visible = this.settings.showAirports();
@@ -134,7 +197,7 @@ export class LiveMap implements OnDestroy {
       center: [81, 22.5],
       zoom: 4,
       minZoom: 3,
-      maxZoom: 11,
+      maxZoom: MAX_ZOOM_BY_VIEW['2d'],
       attributionControl: { compact: true },
     });
     this.map = map;
@@ -170,6 +233,36 @@ export class LiveMap implements OnDestroy {
       map.addSource(AIRPORTS, { type: 'geojson', data: empty });
       map.addSource(TRACK, { type: 'geojson', data: empty });
       map.addSource(PLANES, { type: 'geojson', data: empty });
+      map.addSource(DEM, {
+        type: 'raster-dem',
+        tiles: [DEM_TILES],
+        encoding: 'terrarium',
+        tileSize: 256,
+        maxzoom: 12,
+      });
+
+      // 3D buildings from the basemap's own vector tiles (only shown in the 3D view).
+      const buildingLayer = map
+        .getStyle()
+        .layers.find(
+          (layer) => (layer as { 'source-layer'?: string })['source-layer'] === 'building',
+        ) as { source?: string } | undefined;
+      if (buildingLayer?.source) {
+        map.addLayer({
+          id: BUILDINGS_LAYER,
+          type: 'fill-extrusion',
+          source: buildingLayer.source,
+          'source-layer': 'building',
+          minzoom: 13,
+          layout: { visibility: 'none' },
+          paint: {
+            'fill-extrusion-color': ink.building,
+            'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+            'fill-extrusion-opacity': 0.75,
+          },
+        });
+      }
 
       // Drawing order, bottom to top: path, airport pins, selection ring, planes.
       map.addLayer({
@@ -221,6 +314,20 @@ export class LiveMap implements OnDestroy {
         minzoom: 7,
         filter: ['!=', ['get', 'size'], 'large'],
       });
+      // Ground shadow: in 3D the plane icon floats above it, which shows altitude.
+      map.addLayer({
+        id: SHADOW_LAYER,
+        type: 'circle',
+        source: PLANES,
+        layout: { visibility: 'none' },
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 3, 9, 8, 14, 16],
+          'circle-color': '#000000',
+          'circle-opacity': 0.4,
+          'circle-blur': 0.8,
+          'circle-pitch-alignment': 'map',
+        },
+      });
       map.addLayer({
         id: RING_LAYER,
         type: 'circle',
@@ -242,6 +349,7 @@ export class LiveMap implements OnDestroy {
           'icon-image': ['get', 'icon'],
           'icon-rotate': ['get', 'heading'],
           'icon-rotation-alignment': 'map',
+          'icon-pitch-alignment': 'viewport',
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-size': ['interpolate', ['linear'], ['zoom'], 3, 0.3, 6, 0.45, 9, 0.7],
@@ -258,9 +366,14 @@ export class LiveMap implements OnDestroy {
           map.on('mouseleave', layer, pointer(false));
         }
         map.on('moveend', () => this.updateInView());
+        // Dragging the map with the mouse/finger ends the chase camera.
+        map.on('dragstart', (event) => {
+          if (event.originalEvent && this.settings.follow()) this.settings.follow.set(false);
+        });
       }
 
       this.ready = true;
+      this.applyView(this.settings.view());
       this.showPins();
       this.applyAirportVisibility(this.settings.showAirports());
       this.render();
@@ -294,6 +407,7 @@ export class LiveMap implements OnDestroy {
         properties: {
           id: flight.id,
           heading: flight.heading ?? 0,
+          band: altitudeBand(flight.alt),
           icon: byAltitude ? bandIcon(altitudeBand(flight.alt)) : kindIcon(flight.kind),
           selected: flight.id === selectedId,
         },
@@ -302,16 +416,20 @@ export class LiveMap implements OnDestroy {
     }
     source.setData({ type: 'FeatureCollection', features });
     this.drawTrack(selectedPosition);
+    this.followSelected(selectedId, selectedPosition);
     this.updateInView(features.map((feature) => feature.geometry.coordinates));
 
     // Refresh the recorded path now and then (new points arrive every poll).
-    if (selectedId && Date.now() - this.trackLoadedAt > TRACK_REFRESH_MS) void this.loadTrack(selectedId);
+    if (selectedId && Date.now() - this.trackLoadedAt > TRACK_REFRESH_MS)
+      void this.loadTrack(selectedId);
   }
 
   private onMapClick(event: MapMouseEvent): void {
     const map = this.map;
     if (!map) return;
-    const hits = map.queryRenderedFeatures(event.point, { layers: [PLANES_LAYER, AIRPORT_DOT_LAYER] });
+    const hits = map.queryRenderedFeatures(event.point, {
+      layers: [PLANES_LAYER, AIRPORT_DOT_LAYER],
+    });
     const plane = hits.find((hit) => hit.layer.id === PLANES_LAYER);
     if (plane && typeof plane.properties['id'] === 'string') {
       this.selectedFromMap = plane.properties['id'];
@@ -333,9 +451,14 @@ export class LiveMap implements OnDestroy {
     this.trackFor = id;
     if (!map || !this.ready) return;
 
+    if (!id) this.settings.follow.set(false);
     const flight = id ? this.byId.get(id) : undefined;
     if (flight && this.selectedFromMap !== id) {
-      map.flyTo({ center: project(flight, Date.now()), zoom: Math.max(map.getZoom(), FOCUS_ZOOM), speed: 1.4 });
+      map.flyTo({
+        center: project(flight, Date.now()),
+        zoom: Math.max(map.getZoom(), FOCUS_ZOOM),
+        speed: 1.4,
+      });
     }
     this.selectedFromMap = null;
 
@@ -388,7 +511,96 @@ export class LiveMap implements OnDestroy {
   private applyTheme(theme: Theme): void {
     const map = this.map;
     if (!map || this.appliedTheme === null || this.appliedTheme === theme) return;
-    map.setStyle(BASEMAP_STYLES[theme]);
+    const sameBasemap = BASEMAP_STYLES[this.appliedTheme] === BASEMAP_STYLES[theme];
+    this.appliedTheme = theme;
+    if (!sameBasemap) {
+      map.setStyle(BASEMAP_STYLES[theme]); // `style.load` rebuilds the layers with this theme's ink
+      return;
+    }
+    if (!this.ready) return;
+    // Dark and glass share a basemap: only the overlay colours change.
+    const ink = MAP_INK[theme];
+    map.setPaintProperty(TRACK_LAYER, 'line-color', ink.track);
+    map.setPaintProperty(AIRPORT_DOT_LAYER, 'circle-stroke-color', ink.stroke);
+    for (const layer of [AIRPORT_LABEL_MAJOR, AIRPORT_LABEL_MINOR]) {
+      map.setPaintProperty(layer, 'text-color', ink.label);
+      map.setPaintProperty(layer, 'text-halo-color', ink.halo);
+    }
+    map.setPaintProperty(RING_LAYER, 'circle-color', ink.ring);
+    map.setPaintProperty(RING_LAYER, 'circle-stroke-color', ink.ring);
+    if (map.getLayer(BUILDINGS_LAYER)) {
+      map.setPaintProperty(BUILDINGS_LAYER, 'fill-extrusion-color', ink.building);
+    }
+  }
+
+  /**
+   * 2D flat map, 3D (tilted, terrain, buildings, planes lifted above their
+   * shadow) or a globe. Also re-run after a style swap, which drops terrain.
+   */
+  private applyView(view: MapView): void {
+    const map = this.map;
+    if (!map || !this.ready) return;
+    const is3d = view === '3d';
+    try {
+      map.setProjection({ type: view === 'globe' ? 'globe' : 'mercator' });
+      map.setTerrain(is3d ? { source: DEM, exaggeration: 1.5 } : null);
+    } catch (error) {
+      console.error('[map] 3D setup failed', error);
+    }
+    map.setMaxZoom(MAX_ZOOM_BY_VIEW[view]);
+    map.setMinZoom(view === 'globe' ? 1.5 : 3);
+    const visibility = is3d ? 'visible' : 'none';
+    for (const layer of [BUILDINGS_LAYER, SHADOW_LAYER]) {
+      if (map.getLayer(layer)) map.setLayoutProperty(layer, 'visibility', visibility);
+    }
+    const lift = [0, 1, 2, 3, 4, 5, 6].flatMap((band) => [band, ['literal', [0, -band * LIFT_PX]]]);
+    map.setLayoutProperty(
+      PLANES_LAYER,
+      'icon-offset',
+      is3d
+        ? (['match', ['get', 'band'], ...lift, ['literal', [0, 0]]] as unknown as [number, number])
+        : [0, 0],
+    );
+
+    if (view === this.appliedView) return;
+    this.appliedView = view;
+    if (view === '3d') {
+      map.easeTo({
+        pitch: TILT_PITCH,
+        bearing: TILT_BEARING,
+        zoom: Math.max(map.getZoom(), 6),
+        duration: 1100,
+      });
+    } else if (view === 'globe') {
+      map.easeTo({ pitch: 0, bearing: 0, center: [82, 22], zoom: 2.6, duration: 1100 });
+    } else {
+      map.easeTo({
+        pitch: 0,
+        bearing: 0,
+        zoom: Math.min(map.getZoom(), MAX_ZOOM_BY_VIEW['2d']),
+        duration: 900,
+      });
+    }
+  }
+
+  /** Chase camera: centre on the selected flight and look along its heading. */
+  private followSelected(selectedId: string | null, position: [number, number] | null): void {
+    const map = this.map;
+    if (!map || !selectedId || !position || !this.settings.follow()) return;
+    const heading = this.byId.get(selectedId)?.heading ?? map.getBearing();
+    const narrow = innerWidth <= 760;
+    map.easeTo({
+      center: position,
+      bearing: heading,
+      pitch: FOLLOW_PITCH,
+      zoom: Math.max(map.getZoom(), FOLLOW_ZOOM),
+      // Keep the plane in the part of the map the flight card does not cover.
+      padding: narrow
+        ? { top: 0, left: 0, right: 0, bottom: Math.round(innerHeight * 0.42) }
+        : { top: 0, bottom: 0, right: 0, left: 380 },
+      duration: TICK_MS,
+      easing: (t) => t,
+    });
   }
 
   private drawPins(pins: AirportPin[]): void {
@@ -417,8 +629,7 @@ export class LiveMap implements OnDestroy {
     const map = this.map;
     if (!map || !this.ready) return;
     const coordinates =
-      positions ??
-      [...this.byId.values()].map((flight) => project(flight, Date.now()) as number[]);
+      positions ?? [...this.byId.values()].map((flight) => project(flight, Date.now()) as number[]);
     const bounds = map.getBounds();
     let count = 0;
     for (const [lon, lat] of coordinates) {
@@ -437,9 +648,22 @@ function planeIcon(fill: string): ImageData {
   const ctx = canvas.getContext('2d')!;
   ctx.beginPath();
   const outline: [number, number][] = [
-    [32, 3], [36, 18], [60, 36], [60, 42], [36, 34], [34, 50], [44, 56],
-    [44, 61], [32, 58], [20, 61], [20, 56], [30, 50], [28, 34], [4, 42],
-    [4, 36], [28, 18],
+    [32, 3],
+    [36, 18],
+    [60, 36],
+    [60, 42],
+    [36, 34],
+    [34, 50],
+    [44, 56],
+    [44, 61],
+    [32, 58],
+    [20, 61],
+    [20, 56],
+    [30, 50],
+    [28, 34],
+    [4, 42],
+    [4, 36],
+    [28, 18],
   ];
   outline.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
   ctx.closePath();

@@ -32,10 +32,26 @@ class FakeEventSource {
 }
 
 const BOARD: AirportBoard = {
-  airport: { iata: 'DEL', icao: 'VIDP', name: 'Indira Gandhi International Airport', city: 'New Delhi', lat: 28.5, lon: 77.1 },
+  airport: {
+    iata: 'DEL',
+    icao: 'VIDP',
+    name: 'Indira Gandhi International Airport',
+    city: 'New Delhi',
+    lat: 28.5,
+    lon: 77.1,
+  },
   updatedAt: '2026-10-10T06:00:00.000Z',
   arrivals: [
-    { id: 'abc', callsign: 'AIC470', airline: 'Air India', aircraftType: 'A320', other: { code: 'BOM', city: 'Mumbai' }, altitudeM: 9000, speedMs: 220, distanceKm: 312 },
+    {
+      id: 'abc',
+      callsign: 'AIC470',
+      airline: 'Air India',
+      aircraftType: 'A320',
+      other: { code: 'BOM', city: 'Mumbai' },
+      altitudeM: 9000,
+      speedMs: 220,
+      distanceKm: 312,
+    },
   ],
   departures: [],
 };
@@ -55,8 +71,24 @@ const SIA317: Flight = {
   type: 'A388',
   squawk: '1234',
   t: Date.now(),
-  origin: { code: 'LHR', name: 'London Heathrow', city: 'London', country: 'GB', lat: 51.47, lon: -0.46, inIndia: false },
-  destination: { code: 'SIN', name: 'Changi', city: 'Singapore', country: 'SG', lat: 1.36, lon: 103.99, inIndia: false },
+  origin: {
+    code: 'LHR',
+    name: 'London Heathrow',
+    city: 'London',
+    country: 'GB',
+    lat: 51.47,
+    lon: -0.46,
+    inIndia: false,
+  },
+  destination: {
+    code: 'SIN',
+    name: 'Changi',
+    city: 'Singapore',
+    country: 'SG',
+    lat: 1.36,
+    lon: 103.99,
+    inIndia: false,
+  },
   kind: 'overflight',
 };
 
@@ -104,7 +136,12 @@ describe('pages and navigation', () => {
     const router = TestBed.inject(Router);
     await router.navigateByUrl(path);
     await fixture.whenStable();
-    return { fixture, router, root: fixture.nativeElement as HTMLElement, http: TestBed.inject(HttpTestingController) };
+    return {
+      fixture,
+      router,
+      root: fixture.nativeElement as HTMLElement,
+      http: TestBed.inject(HttpTestingController),
+    };
   }
 
   /** Lets promise continuations (firstValueFrom) run, then waits for rendering. */
@@ -132,10 +169,16 @@ describe('pages and navigation', () => {
     it('shows the rail with four pages, the account button, and opens one stream', async () => {
       signIn();
       const { root } = await open('/');
-      expect(root.querySelector('nav.rail .logo')?.getAttribute('aria-label')).toContain('Flight Radar India');
-      const links = [...root.querySelectorAll<HTMLElement>('nav.rail .item .label')].map((l) => l.textContent?.trim());
+      expect(root.querySelector('nav.rail .logo')?.getAttribute('aria-label')).toContain(
+        'Flight Radar India',
+      );
+      const links = [...root.querySelectorAll<HTMLElement>('nav.rail .item .label')].map((l) =>
+        l.textContent?.trim(),
+      );
       expect(links).toEqual(['Live map', 'Flights', 'Insights', 'Airports']);
-      expect(root.querySelector('[data-testid="account-button"]')?.getAttribute('aria-label')).toContain('admin@example.com');
+      expect(
+        root.querySelector('[data-testid="account-button"]')?.getAttribute('aria-label'),
+      ).toContain('admin@example.com');
       expect(root.querySelector('[data-testid="account-menu"]')).toBeNull();
       expect(FlightStreamCount()).toBe(1);
       expect(FakeEventSource.instances[0]?.url).toBe('/api/stream');
@@ -144,7 +187,9 @@ describe('pages and navigation', () => {
     it('marks the current page in the rail', async () => {
       signIn();
       const { root } = await open('/flights');
-      const active = [...root.querySelectorAll<HTMLElement>('nav.rail .item.on .label')].map((l) => l.textContent?.trim());
+      const active = [...root.querySelectorAll<HTMLElement>('nav.rail .item.on .label')].map((l) =>
+        l.textContent?.trim(),
+      );
       expect(active).toEqual(['Flights']);
     });
 
@@ -182,20 +227,22 @@ describe('pages and navigation', () => {
       expect(FakeEventSource.instances[0]?.closed).toBe(true);
     });
 
-    it('switches between light and dark theme and remembers the choice', async () => {
+    it('offers dark, light and glass themes and remembers the choice', async () => {
       signIn();
       localStorage.removeItem('fr-theme');
       const { fixture, root } = await open('/');
       const theme = TestBed.inject(ThemeService);
-      const before = theme.theme();
 
-      root.querySelector<HTMLButtonElement>('[data-testid="theme-toggle"]')!.click();
-      await fixture.whenStable();
+      for (const id of ['glass', 'light', 'dark'] as const) {
+        root.querySelector<HTMLButtonElement>('[data-testid="theme-toggle"]')!.click();
+        await fixture.whenStable();
+        root.querySelector<HTMLButtonElement>(`[data-testid="theme-${id}"]`)!.click();
+        await fixture.whenStable();
 
-      const after = before === 'dark' ? 'light' : 'dark';
-      expect(theme.theme()).toBe(after);
-      expect(document.documentElement.dataset['theme']).toBe(after);
-      expect(localStorage.getItem('fr-theme')).toBe(after);
+        expect(theme.theme()).toBe(id);
+        expect(document.documentElement.dataset['theme']).toBe(id);
+        expect(localStorage.getItem('fr-theme')).toBe(id);
+      }
     });
 
     it('keeps the same live stream while moving between pages', async () => {
@@ -216,7 +263,9 @@ describe('pages and navigation', () => {
       const { root } = await open('/');
       expect(root.querySelector('app-map-page')).not.toBeNull();
       expect(root.querySelector('[data-testid="airborne-count"]')?.textContent?.trim()).toBe('—');
-      expect(root.querySelector('[data-testid="feed-status"]')?.textContent).toContain('Connecting');
+      expect(root.querySelector('[data-testid="feed-status"]')?.textContent).toContain(
+        'Connecting',
+      );
     });
   });
 
@@ -231,9 +280,9 @@ describe('pages and navigation', () => {
       root.querySelector<HTMLButtonElement>('[data-testid="layers-button"]')!.click();
       await fixture.whenStable();
 
-      const altitude = [...root.querySelectorAll<HTMLButtonElement>('[data-testid="layers-panel"] .seg button')].find((b) =>
-        b.textContent?.includes('Altitude'),
-      )!;
+      const altitude = [
+        ...root.querySelectorAll<HTMLButtonElement>('[data-testid="layers-panel"] .seg button'),
+      ].find((b) => b.textContent?.includes('Altitude'))!;
       altitude.click();
       await fixture.whenStable();
 
@@ -248,7 +297,9 @@ describe('pages and navigation', () => {
       expect(root.querySelector('[data-testid="in-view"]')).toBeNull();
       TestBed.inject(MapSettings).inView.set(42);
       await fixture.whenStable();
-      expect(root.querySelector('[data-testid="in-view"]')?.textContent).toContain('42 aircraft in view');
+      expect(root.querySelector('[data-testid="in-view"]')?.textContent).toContain(
+        '42 aircraft in view',
+      );
     });
   });
 
@@ -270,6 +321,39 @@ describe('pages and navigation', () => {
       expect(card.textContent).toContain('km flown');
       expect(card.textContent).toContain('36,089 ft');
       expect(card.textContent).toContain('9V-SKA');
+    });
+
+    it('follows the flight in 3D from the card and stops when asked or when closed', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317]));
+      TestBed.inject(FlightSelection).select(SIA317.id);
+      await fixture.whenStable();
+
+      const button = () => root.querySelector<HTMLButtonElement>('[data-testid="follow-button"]')!;
+      expect(button().textContent).toContain('Follow in 3D');
+      button().click();
+      await fixture.whenStable();
+      expect(settings.view()).toBe('3d');
+      expect(settings.follow()).toBe(true);
+      expect(button().textContent).toContain('Stop following');
+
+      root.querySelector<HTMLButtonElement>('app-flight-card .close')!.click();
+      await fixture.whenStable();
+      expect(settings.follow()).toBe(false);
+    });
+
+    it('switches the map between 2D, 3D and globe', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      root.querySelector<HTMLButtonElement>('[data-testid="view-3d"]')!.click();
+      await fixture.whenStable();
+      expect(settings.view()).toBe('3d');
+      root.querySelector<HTMLButtonElement>('[data-testid="view-globe"]')!.click();
+      await fixture.whenStable();
+      expect(settings.view()).toBe('globe');
     });
 
     it('closes with the close button and says so when the flight left the area', async () => {
@@ -334,7 +418,14 @@ describe('pages and navigation', () => {
         .expectOne((r) => r.url === '/api/airports' && r.params.get('search') === 'delhi')
         .flush({
           airports: [
-            { iata: 'DEL', icao: 'VIDP', name: 'Indira Gandhi International Airport', city: 'New Delhi', lat: 28.5, lon: 77.1 },
+            {
+              iata: 'DEL',
+              icao: 'VIDP',
+              name: 'Indira Gandhi International Airport',
+              city: 'New Delhi',
+              lat: 28.5,
+              lon: 77.1,
+            },
           ],
         });
       await settle(fixture);
@@ -358,7 +449,9 @@ describe('pages and navigation', () => {
 
       type(root, 'zzzzzz');
       await fixture.whenStable();
-      expect(root.querySelector('app-global-search .results')?.textContent).toContain('No flights or airports match');
+      expect(root.querySelector('app-global-search .results')?.textContent).toContain(
+        'No flights or airports match',
+      );
     });
   });
 
@@ -377,7 +470,9 @@ describe('pages and navigation', () => {
     it('loads the three history datasets', async () => {
       signIn();
       const { fixture, root, http } = await open('/insights');
-      http.expectOne((r) => r.url === '/api/stats/hourly' && r.params.get('hours') === '24').flush({ points: [] });
+      http
+        .expectOne((r) => r.url === '/api/stats/hourly' && r.params.get('hours') === '24')
+        .flush({ points: [] });
       http.expectOne((r) => r.url === '/api/stats/top-airports').flush({ airports: [] });
       http.expectOne((r) => r.url === '/api/stats/airlines').flush({ airlines: [] });
       await settle(fixture);
@@ -413,7 +508,9 @@ describe('pages and navigation', () => {
     it('explains when the board cannot be loaded', async () => {
       signIn();
       const { fixture, root, http } = await open('/airports/ZZZ');
-      http.expectOne('/api/airports/ZZZ').flush({ message: 'Unknown airport' }, { status: 404, statusText: 'Not Found' });
+      http
+        .expectOne('/api/airports/ZZZ')
+        .flush({ message: 'Unknown airport' }, { status: 404, statusText: 'Not Found' });
       await settle(fixture);
       expect(root.textContent).toContain('Could not load the board for ZZZ');
     });
@@ -426,10 +523,17 @@ describe('pages and navigation', () => {
       (root.querySelector('#password') as HTMLInputElement).value = 'wrong';
       root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
 
-      http.expectOne('/api/auth/login').flush({ message: 'Invalid email or password' }, { status: 401, statusText: 'Unauthorized' });
+      http
+        .expectOne('/api/auth/login')
+        .flush(
+          { message: 'Invalid email or password' },
+          { status: 401, statusText: 'Unauthorized' },
+        );
       await settle(fixture);
 
-      expect(root.querySelector('[data-testid="login-error"]')?.textContent).toContain('Invalid email or password');
+      expect(root.querySelector('[data-testid="login-error"]')?.textContent).toContain(
+        'Invalid email or password',
+      );
       expect(router.url).toBe('/login');
       expect(TestBed.inject(Auth).user()).toBeNull();
     });
@@ -440,7 +544,9 @@ describe('pages and navigation', () => {
       (root.querySelector('#password') as HTMLInputElement).value = 'right-password';
       root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
 
-      http.expectOne('/api/auth/login').flush({ user: { email: 'admin@example.com', role: 'admin' } });
+      http
+        .expectOne('/api/auth/login')
+        .flush({ user: { email: 'admin@example.com', role: 'admin' } });
       await settle(fixture);
       await settle(fixture);
 
@@ -479,8 +585,24 @@ describe('flight card route sanity', () => {
       ...SIA317,
       lat: 14.5,
       lon: 75.5,
-      origin: { code: 'HSR', name: 'Rajkot', city: 'Rajkot', country: 'IN', lat: 22.31, lon: 70.78, inIndia: true },
-      destination: { code: 'DEL', name: 'Delhi', city: 'New Delhi', country: 'IN', lat: 28.56, lon: 77.1, inIndia: true },
+      origin: {
+        code: 'HSR',
+        name: 'Rajkot',
+        city: 'Rajkot',
+        country: 'IN',
+        lat: 22.31,
+        lon: 70.78,
+        inIndia: true,
+      },
+      destination: {
+        code: 'DEL',
+        name: 'Delhi',
+        city: 'New Delhi',
+        country: 'IN',
+        lat: 28.56,
+        lon: 77.1,
+        inIndia: true,
+      },
     };
     TestBed.inject(FlightStream).snapshot.set(snapshotOf([misfit]));
     TestBed.inject(FlightSelection).select(misfit.id);
@@ -488,7 +610,9 @@ describe('flight card route sanity', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('app-flight-card .progress')).toBeNull();
-    expect(root.querySelector('[data-testid="route-mismatch"]')?.textContent).toContain('callsign may be re-used');
+    expect(root.querySelector('[data-testid="route-mismatch"]')?.textContent).toContain(
+      'callsign may be re-used',
+    );
   });
 });
 
@@ -517,7 +641,9 @@ describe('sign-in switched off on the server (local development)', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="auth-off"]')?.textContent).toContain('Login off');
-    expect([...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Sign out'))).toBe(false);
+    expect(
+      [...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Sign out')),
+    ).toBe(false);
   });
 
   it('restore() remembers that the server has sign-in off', async () => {

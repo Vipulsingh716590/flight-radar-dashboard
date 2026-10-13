@@ -7,9 +7,13 @@
           @if (f.type) {
             <span class="badge">{{ f.type }}</span>
           }
-          <span class="kind" [style.--kind]="kindColor[f.kind]"><i class="swatch"></i>{{ kindLabel[f.kind] }}</span>
+          <span class="kind" [style.--kind]="kindColor[f.kind]"
+            ><i class="swatch"></i>{{ kindLabel[f.kind] }}</span
+          >
         </div>
-        <button type="button" class="close" (click)="close()" aria-label="Close flight details">×</button>
+        <button type="button" class="close" (click)="close()" aria-label="Close flight details">
+          ×
+        </button>
         <p class="airline">{{ f.airline ?? 'Airline unknown' }}</p>
       </header>
 
@@ -45,17 +49,27 @@
 
       @if (progress(); as p) {
         @if (p.plausible) {
-        <div class="progress" role="img"
-          [attr.aria-label]="(p.fraction * 100 | number: '1.0-0') + '% of the route flown'">
-          <div class="bar"><span class="fill" [style.width.%]="p.fraction * 100"></span><span class="plane" [style.left.%]="p.fraction * 100">✈</span></div>
-          <div class="legs">
-            <span>{{ p.flownKm | number: '1.0-0' }} km flown</span>
-            <span>{{ p.remainingKm | number: '1.0-0' }} km to go</span>
+          <div
+            class="progress"
+            role="img"
+            [attr.aria-label]="(p.fraction * 100 | number: '1.0-0') + '% of the route flown'"
+          >
+            <div class="bar">
+              <span class="fill" [style.width.%]="p.fraction * 100"></span
+              ><span class="plane" [style.left.%]="p.fraction * 100">✈</span>
+            </div>
+            <div class="legs">
+              <span>{{ p.flownKm | number: '1.0-0' }} km flown</span>
+              <span>{{ p.remainingKm | number: '1.0-0' }} km to go</span>
+            </div>
+            @if (eta(); as e) {
+              <div class="eta" data-testid="eta">{{ e }} remaining</div>
+            }
           </div>
-        </div>
         } @else {
           <p class="warn" data-testid="route-mismatch">
-            This position does not fit the route above, so the callsign may be re-used. Treat the route as unreliable.
+            This position does not fit the route above, so the callsign may be re-used. Treat the
+            route as unreliable.
           </p>
         }
       }
@@ -69,15 +83,30 @@
         }
       </dl>
 
+      <div class="actions">
+        <button
+          type="button"
+          class="btn-accent"
+          data-testid="follow-button"
+          [attr.aria-pressed]="following()"
+          (click)="toggleFollow()"
+        >
+          {{ following() ? 'Stop following' : 'Follow in 3D' }}
+        </button>
+      </div>
+
       @if (f.origin || f.destination) {
         <p class="note">
-          Route is looked up by callsign and may differ from the actual flight. Distances are straight-line.
+          Route is looked up by callsign and may differ from the actual flight. Distances are
+          straight-line.
         </p>
       }
     } @else {
       <header>
         <div class="title"><h2>Out of range</h2></div>
-        <button type="button" class="close" (click)="close()" aria-label="Close flight details">×</button>
+        <button type="button" class="close" (click)="close()" aria-label="Close flight details">
+          ×
+        </button>
       </header>
       <p class="note">This flight is no longer being received over India.</p>
     }

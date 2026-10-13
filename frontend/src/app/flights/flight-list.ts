@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import type { Flight, FlightKind } from '../core/flight.models';
@@ -20,6 +27,18 @@ export class FlightList {
   private readonly stream = inject(FlightStream);
   private readonly selection = inject(FlightSelection);
   private readonly router = inject(Router);
+
+  /** Phones get big route cards instead of the table. */
+  protected readonly cards = signal(false);
+
+  constructor() {
+    if (typeof matchMedia !== 'function') return;
+    const query = matchMedia('(max-width: 640px)');
+    this.cards.set(query.matches);
+    const onChange = (event: MediaQueryListEvent) => this.cards.set(event.matches);
+    query.addEventListener('change', onChange);
+    inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
+  }
 
   protected readonly kinds = KINDS;
   protected readonly kindLabel = KIND_LABEL;
@@ -88,6 +107,7 @@ export class FlightList {
   protected route = routeLabel;
   protected altitudeFt = (flight: Flight) => feet(flight.alt);
   protected speedKt = (flight: Flight) => knots(flight.speed);
+  protected end = (flight: Flight, side: 'origin' | 'destination') => flight[side];
   protected title = (flight: Flight) => flight.callsign ?? flight.id.toUpperCase();
 }
 
