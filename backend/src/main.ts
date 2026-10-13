@@ -11,7 +11,9 @@ async function bootstrap() {
   const config = loadConfig();
   const { AppModule } = await import('./app.module.js');
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // abortOnError:false lets start-up failures reach the catch below, where they are
+  // printed in full (otherwise a hosted deploy can die with only "exited with status 1").
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { abortOnError: false });
   // Behind a reverse proxy the client IP (used by the login rate limiter) is in X-Forwarded-For.
   if (config.auth.trustProxyHops > 0) app.set('trust proxy', config.auth.trustProxyHops);
   app.setGlobalPrefix('api');
@@ -27,4 +29,12 @@ async function bootstrap() {
   );
 }
 
-await bootstrap();
+try {
+  await bootstrap();
+} catch (error) {
+  // Plain console output: it must appear even if Nest's logger never started.
+  console.error('FATAL: the API could not start.');
+  console.error(error instanceof Error ? error.message : error);
+  if (error instanceof Error && error.stack) console.error(error.stack);
+  process.exit(1);
+}
