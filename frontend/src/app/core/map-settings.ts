@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Flight, FlightKind } from './flight.models';
+import { emergencyOf } from './emergency';
 import { altitudeBand, type ColorBy } from './format';
 
 /** 2D flat map, 3D tilted map with terrain, or a 3D globe. */
@@ -41,6 +42,8 @@ export class MapSettings {
   readonly flyTo = signal<{ lat: number; lon: number; zoom: number; n: number } | null>(null);
 
   passes(flight: Flight): boolean {
+    // An emergency is never filtered out.
+    if (emergencyOf(flight)) return true;
     if (this.hiddenKinds().has(flight.kind)) return false;
     if (this.hiddenBands().has(altitudeBand(flight.alt))) return false;
     if (this.knownRouteOnly() && (!flight.origin || !flight.destination)) return false;

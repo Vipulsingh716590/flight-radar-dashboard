@@ -14,8 +14,37 @@
         <button type="button" class="close" (click)="close()" aria-label="Close flight details">
           ×
         </button>
+        <button
+          type="button"
+          class="star"
+          data-testid="watch-button"
+          [class.on]="watched()"
+          [attr.aria-pressed]="watched()"
+          [attr.aria-label]="watched() ? 'Remove from saved flights' : 'Save this flight'"
+          (click)="toggleWatch()"
+        >
+          <app-icon name="star" />
+        </button>
         <p class="airline">{{ f.airline ?? 'Airline unknown' }}</p>
       </header>
+
+      @if (emergency(); as e) {
+        <p class="emergency" role="alert" data-testid="card-emergency">
+          <app-icon name="alert" /> Squawk {{ f.squawk }}: {{ e }}
+        </p>
+      }
+
+      @if (photo(); as p) {
+        <figure class="photo" data-testid="aircraft-photo">
+          <img [src]="p.src" [alt]="'Photo of ' + (f.reg ?? f.id)" loading="lazy" />
+          <figcaption>
+            Photo:
+            <a [href]="p.link" target="_blank" rel="noopener"
+              >{{ p.photographer }} · Planespotters.net</a
+            >
+          </figcaption>
+        </figure>
+      }
 
       <section class="route" aria-label="Route">
         <div class="end">

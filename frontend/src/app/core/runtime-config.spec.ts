@@ -29,7 +29,10 @@ describe('RuntimeConfig.load', () => {
   const stubFetch = (impl: () => Promise<Partial<Response>>) => vi.stubGlobal('fetch', vi.fn(impl));
 
   it('reads apiBaseUrl from config.json', async () => {
-    stubFetch(async () => ({ ok: true, json: async () => ({ apiBaseUrl: 'https://api.example.com/' }) }));
+    stubFetch(async () => ({
+      ok: true,
+      json: async () => ({ apiBaseUrl: 'https://api.example.com/' }),
+    }));
     const config = TestBed.inject(RuntimeConfig);
     await config.load();
     expect(config.apiBase).toBe('https://api.example.com');
@@ -40,8 +43,15 @@ describe('RuntimeConfig.load', () => {
   it('stays same-origin when the file is missing, broken or unreachable', async () => {
     for (const impl of [
       async () => ({ ok: false }),
-      async () => ({ ok: true, json: async () => { throw new Error('bad json'); } }),
-      async () => { throw new Error('offline'); },
+      async () => ({
+        ok: true,
+        json: async () => {
+          throw new Error('bad json');
+        },
+      }),
+      async () => {
+        throw new Error('offline');
+      },
     ]) {
       stubFetch(impl);
       TestBed.resetTestingModule();
@@ -56,7 +66,10 @@ describe('RuntimeConfig.load', () => {
 describe('apiBaseInterceptor', () => {
   function setup(base: string) {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(withInterceptors([apiBaseInterceptor])), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withInterceptors([apiBaseInterceptor])),
+        provideHttpClientTesting(),
+      ],
     });
     const config = TestBed.inject(RuntimeConfig);
     (config as unknown as { base: string }).base = base;

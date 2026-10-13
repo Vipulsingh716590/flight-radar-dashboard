@@ -1,7 +1,7 @@
 # Netlify honours this file for every kind of deploy (including drag and drop),
 # unlike netlify.toml which manual deploys ignore.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://s3.amazonaws.com https://tilecache.rainviewer.com; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' https://*.onrender.com https://tiles.openfreemap.org https://s3.amazonaws.com https://tilecache.rainviewer.com https://api.open-meteo.com https://api.rainviewer.com; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org https://s3.amazonaws.com https://tilecache.rainviewer.com https://t.plnspttrs.net; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' https://*.onrender.com https://tiles.openfreemap.org https://s3.amazonaws.com https://tilecache.rainviewer.com https://api.open-meteo.com https://api.rainviewer.com https://api.planespotters.net; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin

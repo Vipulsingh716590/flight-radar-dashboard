@@ -117,6 +117,8 @@ describe('pages and navigation', () => {
   beforeEach(() => {
     FakeEventSource.instances = [];
     vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    localStorage.removeItem('fr-watchlist');
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes, withComponentInputBinding()),
@@ -363,6 +365,75 @@ describe('pages and navigation', () => {
       const text = root.querySelector('app-flight-card')?.textContent ?? '';
       expect(text).toContain('km/h');
       expect(text).not.toContain('36,089 ft');
+    });
+
+    it('warns about emergency squawks and keeps them visible through filters', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      const mayday = { ...SIA317, id: 'emg001', callsign: 'AIC101', squawk: '7700' };
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317, mayday]));
+      settings.knownRouteOnly.set(true);
+      settings.hiddenKinds.set(new Set([mayday.kind]));
+      await fixture.whenStable();
+
+      const banner = root.querySelector('[data-testid="emergency-banner"]');
+      expect(banner?.textContent).toContain('AIC101');
+      expect(banner?.textContent).toContain('General emergency');
+      expect(settings.passes(mayday)).toBe(true);
+
+      banner!.querySelector('button')!.click();
+      await fixture.whenStable();
+      expect(TestBed.inject(FlightSelection).selectedId()).toBe('emg001');
+      expect(root.querySelector('[data-testid="card-emergency"]')?.textContent).toContain('7700');
+    });
+
+    it('saves flights to the watchlist and lists them under Saved', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317]));
+      TestBed.inject(FlightSelection).select(SIA317.id);
+      await fixture.whenStable();
+
+      root.querySelector<HTMLButtonElement>('[data-testid="watch-button"]')!.click();
+      await fixture.whenStable();
+      expect(JSON.parse(localStorage.getItem('fr-watchlist')!)[0].id).toBe(SIA317.id);
+
+      TestBed.inject(FlightSelection).select(null);
+      await fixture.whenStable();
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-saved"]')!.click();
+      await fixture.whenStable();
+      expect(root.querySelector('[data-testid="saved-list"]')?.textContent).toContain('SIA317');
+    });
+
+    it('shows an aircraft photo with the photographer credit', async () => {
+      signIn();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              photos: [
+                {
+                  link: 'https://www.planespotters.net/photo/1',
+                  photographer: 'Jane Spotter',
+                  thumbnail_large: { src: 'https://t.plnspttrs.net/1_280.jpg' },
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        ),
+      );
+      const { fixture, root } = await open('/');
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([SIA317]));
+      TestBed.inject(FlightSelection).select(SIA317.id);
+      await fixture.whenStable();
+      await fixture.whenStable();
+
+      const photo = root.querySelector('[data-testid="aircraft-photo"]');
+      expect(photo?.textContent).toContain('Jane Spotter');
+      expect(photo?.querySelector('img')?.getAttribute('src')).toContain('plnspttrs.net');
     });
 
     it('reports how many aircraft are in view', async () => {
@@ -637,6 +708,8 @@ function FlightStreamCount(): number {
 describe('flight card route sanity', () => {
   beforeEach(() => {
     vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    localStorage.removeItem('fr-watchlist');
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes, withComponentInputBinding()),
@@ -693,6 +766,8 @@ describe('flight card route sanity', () => {
 describe('sign-in switched off on the server (local development)', () => {
   beforeEach(() => {
     vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    localStorage.removeItem('fr-watchlist');
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes, withComponentInputBinding()),

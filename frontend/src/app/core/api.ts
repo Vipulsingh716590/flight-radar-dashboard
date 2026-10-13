@@ -112,14 +112,18 @@ export class Api {
   }
 
   async airportPins(): Promise<AirportPin[]> {
-    const body = await firstValueFrom(this.http.get<{ airports: AirportPin[] }>('/api/airports/pins'));
+    const body = await firstValueFrom(
+      this.http.get<{ airports: AirportPin[] }>('/api/airports/pins'),
+    );
     return body.airports;
   }
 
   async track(icao24: string, hours = 6): Promise<TrackPoint[]> {
     const params = new HttpParams().set('hours', hours);
     const body = await firstValueFrom(
-      this.http.get<{ points: TrackPoint[] }>(`/api/flights/${encodeURIComponent(icao24)}/track`, { params }),
+      this.http.get<{ points: TrackPoint[] }>(`/api/flights/${encodeURIComponent(icao24)}/track`, {
+        params,
+      }),
     );
     return body.points;
   }

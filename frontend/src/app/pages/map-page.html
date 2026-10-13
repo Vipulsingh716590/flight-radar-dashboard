@@ -5,6 +5,20 @@
 
   <app-flight-card class="flight-card" />
 
+  @if (emergencies().length > 0) {
+    <div class="emergency-banner" role="alert" data-testid="emergency-banner">
+      <app-icon name="alert" />
+      <div class="emergency-list">
+        @for (e of emergencies(); track e.flight.id) {
+          <button type="button" (click)="pickFlight(e.flight.id)">
+            <strong>{{ e.flight.callsign ?? (e.flight.id | uppercase) }}</strong>
+            squawk {{ e.flight.squawk }} · {{ e.meaning }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+
   <!-- Tools: buttons top-right on desktop, a floating dock at the bottom on phones. -->
   <nav class="dock" aria-label="Map tools" data-testid="map-tools">
     @for (tool of tools; track tool.id) {
@@ -32,7 +46,17 @@
   @if (panel(); as open) {
     <div class="sheet" role="dialog" [attr.aria-label]="open" [attr.data-testid]="'panel-' + open">
       <header class="sheet-head">
-        <h2>{{ open === 'settings' ? 'Settings' : open === 'weather' ? 'Weather' : 'Filters' }}</h2>
+        <h2>
+          {{
+            open === 'settings'
+              ? 'Settings'
+              : open === 'weather'
+                ? 'Weather'
+                : open === 'saved'
+                  ? 'Saved flights'
+                  : 'Filters'
+          }}
+        </h2>
         <button type="button" class="sheet-close" aria-label="Close panel" (click)="closePanel()">
           ×
         </button>
@@ -204,6 +228,46 @@
               <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>
               (radar).
             </p>
+          }
+
+          @case ('saved') {
+            @if (saved().length === 0) {
+              <p class="hint">
+                No saved flights yet. Open a flight and tap the star to keep an eye on it; it is
+                marked with a gold ring on the map.
+              </p>
+            } @else {
+              <ul class="saved-list" data-testid="saved-list">
+                @for (s of saved(); track s.item.id) {
+                  <li>
+                    <button
+                      type="button"
+                      class="saved-open"
+                      [disabled]="!s.flight"
+                      (click)="pickFlight(s.item.id)"
+                    >
+                      <strong>{{ s.item.label }}</strong>
+                      <span>
+                        @if (s.flight; as f) {
+                          {{ f.origin?.code ?? '?' }} → {{ f.destination?.code ?? '?' }}
+                        } @else {
+                          Not in range
+                        }
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      class="saved-remove"
+                      [attr.aria-label]="'Remove ' + s.item.label"
+                      (click)="watchlist.remove(s.item.id)"
+                    >
+                      ×
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+            <p class="hint">Saved flights are stored in this browser only.</p>
           }
 
           @case ('filters') {

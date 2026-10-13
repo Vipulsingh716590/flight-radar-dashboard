@@ -8,19 +8,21 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
+import { emergencyOf } from '../core/emergency';
 import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import { ALTITUDE_BANDS, KIND_COLOR, KIND_LABEL, KINDS, type ColorBy } from '../core/format';
 import { Icon } from '../core/icon';
 import { MapSettings, type MapView, type Units } from '../core/map-settings';
+import { Watchlist } from '../core/watchlist';
 import { compass, Weather, weatherText, type Conditions } from '../core/weather';
 import { KpiBar } from '../kpi/kpi-bar';
 import { FlightCard } from '../map/flight-card';
 import { LiveMap } from '../map/live-map';
 
-type Panel = 'settings' | 'weather' | 'filters';
+type Panel = 'settings' | 'weather' | 'filters' | 'saved';
 
 /** Weather is re-read after this long, or when the place moved by more than ~0.5 degrees. */
 const WEATHER_MAX_AGE_MS = 10 * 60_000;
@@ -36,7 +38,7 @@ const INDIA_CENTRE = { lat: 22.5, lon: 81 };
  */
 @Component({
   selector: 'app-map-page',
-  imports: [KpiBar, LiveMap, FlightCard, DecimalPipe, Icon],
+  imports: [KpiBar, LiveMap, FlightCard, DecimalPipe, UpperCasePipe, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './map-page.html',
   styleUrl: './map-page.scss',
@@ -46,6 +48,31 @@ export class MapPage {
   private readonly stream = inject(FlightStream);
   private readonly selection = inject(FlightSelection);
   private readonly weather = inject(Weather);
+  protected readonly watchlist = inject(Watchlist);
+
+  /** Airborne flights squawking 7500 / 7600 / 7700. */
+  protected readonly emergencies = computed(() =>
+    (this.stream.snapshot()?.flights ?? [])
+      .filter((flight) => !flight.onGround)
+      .flatMap((flight) => {
+        const meaning = emergencyOf(flight);
+        return meaning ? [{ flight, meaning }] : [];
+      }),
+  );
+
+  /** Saved flights, with the live flight when it is currently in range. */
+  protected readonly saved = computed(() => {
+    const flights = new Map((this.stream.snapshot()?.flights ?? []).map((f) => [f.id, f]));
+    return this.watchlist.items().map((item) => {
+      const flight = flights.get(item.id);
+      return { item, flight: flight && !flight.onGround ? flight : null };
+    });
+  });
+
+  protected pickFlight(id: string): void {
+    this.selection.select(id);
+    this.panel.set(null);
+  }
 
   protected readonly panel = signal<Panel | null>(null);
   protected readonly hasFlight = computed(() => this.selection.selectedId() !== null);
@@ -54,6 +81,7 @@ export class MapPage {
     { id: 'settings', label: 'Settings', icon: 'settings' },
     { id: 'weather', label: 'Weather', icon: 'cloud' },
     { id: 'filters', label: 'Filters', icon: 'filter' },
+    { id: 'saved', label: 'Saved', icon: 'star' },
   ];
   protected readonly modes: { id: ColorBy; label: string }[] = [
     { id: 'route', label: 'Route type' },

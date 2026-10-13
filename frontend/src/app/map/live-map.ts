@@ -20,11 +20,13 @@ import {
 } from 'maplibre-gl';
 import { Api, type AirportPin, type TrackPoint } from '../core/api';
 import { project } from '../core/extrapolate';
+import { emergencyOf } from '../core/emergency';
 import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
 import { MapSettings, type MapView } from '../core/map-settings';
+import { Watchlist } from '../core/watchlist';
 import { Weather } from '../core/weather';
 import { ThemeService, type Theme } from '../core/theme';
 
@@ -40,6 +42,8 @@ const TRACK_LAYER = 'track-line';
 const DEM = 'terrain-dem';
 const BUILDINGS_LAYER = 'buildings-3d';
 const SHADOW_LAYER = 'planes-shadow';
+const WATCH_LAYER = 'watched-ring';
+const EMERGENCY_LAYER = 'emergency-ring';
 /** Free elevation tiles (Mapzen Terrarium encoding), no key needed. */
 const DEM_TILES = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 /** Camera used while following a flight. */
@@ -143,6 +147,7 @@ export class LiveMap implements OnDestroy {
   private readonly selection = inject(FlightSelection);
   private readonly settings = inject(MapSettings);
   private readonly weather = inject(Weather);
+  private readonly watchlist = inject(Watchlist);
   private readonly themeService = inject(ThemeService);
   private readonly api = inject(Api);
   private readonly router = inject(Router);
@@ -190,6 +195,10 @@ export class LiveMap implements OnDestroy {
         if (view !== '3d') this.settings.follow.set(false);
         this.applyView(view);
       });
+    });
+    effect(() => {
+      this.watchlist.ids();
+      untracked(() => this.render());
     });
     effect(() => {
       this.settings.follow();
@@ -368,6 +377,33 @@ export class LiveMap implements OnDestroy {
           'circle-pitch-alignment': 'map',
         },
       });
+      // Saved flights get a gold ring, emergencies a larger red one.
+      map.addLayer({
+        id: WATCH_LAYER,
+        type: 'circle',
+        source: PLANES,
+        filter: ['==', ['get', 'watched'], true],
+        paint: {
+          'circle-radius': 15,
+          'circle-color': '#ffd23f',
+          'circle-opacity': 0.18,
+          'circle-stroke-color': '#ffd23f',
+          'circle-stroke-width': 2,
+        },
+      });
+      map.addLayer({
+        id: EMERGENCY_LAYER,
+        type: 'circle',
+        source: PLANES,
+        filter: ['==', ['get', 'emergency'], true],
+        paint: {
+          'circle-radius': 24,
+          'circle-color': '#ff3b30',
+          'circle-opacity': 0.25,
+          'circle-stroke-color': '#ff3b30',
+          'circle-stroke-width': 3,
+        },
+      });
       map.addLayer({
         id: RING_LAYER,
         type: 'circle',
@@ -439,6 +475,7 @@ export class LiveMap implements OnDestroy {
     const now = Date.now();
     const selectedId = this.selection.selectedId();
     const byAltitude = this.settings.colorBy() === 'altitude';
+    const watched = this.watchlist.ids();
     this.byId = new Map();
     const features = [];
     let selectedPosition: [number, number] | null = null;
@@ -456,6 +493,8 @@ export class LiveMap implements OnDestroy {
           band: altitudeBand(flight.alt),
           icon: byAltitude ? bandIcon(altitudeBand(flight.alt)) : kindIcon(flight.kind),
           selected: flight.id === selectedId,
+          watched: watched.has(flight.id),
+          emergency: emergencyOf(flight) !== null,
         },
         geometry: { type: 'Point' as const, coordinates: position },
       });

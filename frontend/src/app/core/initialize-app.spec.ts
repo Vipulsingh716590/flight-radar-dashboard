@@ -53,7 +53,9 @@ describe('initializeApp', () => {
     const done = start('');
     await new Promise((resolve) => setTimeout(resolve, 5));
 
-    http.expectOne('/api/auth/me').flush({ message: 'Authentication required' }, { status: 401, statusText: 'Unauthorized' });
+    http
+      .expectOne('/api/auth/me')
+      .flush({ message: 'Authentication required' }, { status: 401, statusText: 'Unauthorized' });
     await done;
 
     expect(TestBed.inject(Auth).user()).toBeNull();

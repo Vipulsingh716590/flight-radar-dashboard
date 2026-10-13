@@ -55,8 +55,12 @@ describe('routeProgress', () => {
   });
 
   it('is 0 at the origin and 1 at the destination', () => {
-    expect(routeProgress(flight({ lat: 0, lon: 0.0001, origin, destination }))!.fraction).toBeLessThan(0.01);
-    expect(routeProgress(flight({ lat: 0, lon: 10, origin, destination }))!.fraction).toBeGreaterThan(0.99);
+    expect(
+      routeProgress(flight({ lat: 0, lon: 0.0001, origin, destination }))!.fraction,
+    ).toBeLessThan(0.01);
+    expect(
+      routeProgress(flight({ lat: 0, lon: 10, origin, destination }))!.fraction,
+    ).toBeGreaterThan(0.99);
   });
 
   it('is plausible on and near the route line, implausible far off it', () => {

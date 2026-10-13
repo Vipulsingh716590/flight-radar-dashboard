@@ -220,7 +220,7 @@ Option A avoids the problem entirely because the browser only talks to one origi
 | Browser console: CORS error | `FRONTEND_ORIGIN` differs from the page origin by scheme/host/port |
 | Console: "Refused to connect ... Content Security Policy" | API origin missing from `connect-src` (cross-origin setup) |
 | Dashboard loads but stays "Connecting…" | A proxy buffers the stream. nginx and Caddy configs here disable buffering; check any extra proxy |
-| Weather panel says it could not be loaded / no radar | CSP `connect-src` must allow `api.open-meteo.com` and `api.rainviewer.com`, `img-src` must allow `tilecache.rainviewer.com` (already in the shipped headers); the services are free and may rate-limit |
+| Weather panel says it could not be loaded / no radar | CSP `connect-src` must allow `api.open-meteo.com`, `api.rainviewer.com` and `api.planespotters.net`, `img-src` must allow `tilecache.rainviewer.com` and `t.plnspttrs.net` (already in the shipped headers); the services are free and may rate-limit |
 | Map is blank | Basemap tiles blocked (CSP `img-src`/`connect-src` must allow `tiles.openfreemap.org`; the 3D terrain also needs `s3.amazonaws.com`) |
 | 429 on login | Rate limit; wait the `Retry-After` seconds, or see `LOGIN_*` settings |
 | Render build: `npm ci ... Missing: typescript@... from lock file` | Image uses npm 10; the Dockerfiles must use `node:24-alpine` (npm 11) |

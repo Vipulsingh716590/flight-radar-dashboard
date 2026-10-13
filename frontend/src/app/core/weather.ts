@@ -47,7 +47,9 @@ export class Weather {
       forecast_hours: '1',
       wind_speed_unit: 'kn',
     });
-    const response = await fetch(`${OPEN_METEO}?${params}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const response = await fetch(`${OPEN_METEO}?${params}`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
     if (!response.ok) throw new Error(`Open-Meteo answered ${response.status}`);
     const body = (await response.json()) as {
       current: Record<string, number | string | null>;
@@ -97,7 +99,24 @@ export function weatherText(code: number): string {
   return 'Unknown';
 }
 
-const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+const COMPASS = [
+  'N',
+  'NNE',
+  'NE',
+  'ENE',
+  'E',
+  'ESE',
+  'SE',
+  'SSE',
+  'S',
+  'SSW',
+  'SW',
+  'WSW',
+  'W',
+  'WNW',
+  'NW',
+  'NNW',
+];
 
 /** 0-360 degrees -> "NNE". */
 export function compass(degrees: number): string {

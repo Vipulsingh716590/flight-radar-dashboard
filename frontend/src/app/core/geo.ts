@@ -36,8 +36,10 @@ const MIN_DETOUR_ALLOWANCE_KM = 150;
 export function routeProgress(flight: Flight): RouteProgress | null {
   const { origin, destination } = flight;
   if (
-    origin?.lat == null || origin.lon == null ||
-    destination?.lat == null || destination.lon == null
+    origin?.lat == null ||
+    origin.lon == null ||
+    destination?.lat == null ||
+    destination.lon == null
   ) {
     return null;
   }

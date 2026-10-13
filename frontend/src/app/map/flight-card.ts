@@ -1,12 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { emergencyOf } from '../core/emergency';
 import { FlightSelection } from '../core/flight-selection';
 import { FlightStream } from '../core/flight-stream';
 import { feet, KIND_COLOR, KIND_LABEL, knots } from '../core/format';
 import { routeProgress } from '../core/geo';
 import { Icon } from '../core/icon';
 import { MapSettings } from '../core/map-settings';
+import { AircraftPhotos, type AircraftPhoto } from '../core/photos';
+import { Watchlist } from '../core/watchlist';
 
 /** Vertical rates below this (ft/min) are shown as level flight. */
 const LEVEL_FPM = 100;
@@ -28,6 +39,8 @@ export class FlightCard {
   private readonly stream = inject(FlightStream);
   private readonly selection = inject(FlightSelection);
   private readonly settings = inject(MapSettings);
+  private readonly photos = inject(AircraftPhotos);
+  protected readonly watchlist = inject(Watchlist);
 
   protected readonly selectedId = this.selection.selectedId;
   protected readonly kindLabel = KIND_LABEL;
@@ -56,6 +69,15 @@ export class FlightCard {
   });
 
   protected readonly following = this.settings.follow;
+  protected readonly emergency = computed(() => {
+    const flight = this.flight();
+    return flight ? emergencyOf(flight) : null;
+  });
+  protected readonly photo = signal<AircraftPhoto | null>(null);
+  protected readonly watched = computed(() => {
+    const id = this.selectedId();
+    return id !== null && this.watchlist.has(id);
+  });
   protected readonly hasData = computed(() => this.stream.snapshot() !== null);
   protected readonly copied = signal(false);
 
@@ -111,6 +133,26 @@ export class FlightCard {
     }
     this.settings.view.set('3d');
     this.settings.follow.set(true);
+  }
+
+  constructor() {
+    // One photo lookup per aircraft: the key is the aircraft, not every position update.
+    effect(() => {
+      const id = this.selectedId();
+      untracked(() => {
+        this.photo.set(null);
+        if (!id) return;
+        const reg = this.flight()?.reg ?? null;
+        void this.photos.photo(id, reg).then((found) => {
+          if (this.selectedId() === id) this.photo.set(found);
+        });
+      });
+    });
+  }
+
+  protected toggleWatch(): void {
+    const flight = this.flight();
+    if (flight) this.watchlist.toggle(flight);
   }
 
   /** Copies a link that opens the map on this flight. */

@@ -52,6 +52,13 @@ Map features worth knowing:
 - **Filters** (panel): hide route types or altitude bands, or show only flights with a known route;
   the button shows how many filters are active and the panel "Showing X of Y". The selected flight
   always stays visible.
+- **Emergency squawks**: flights squawking 7500 (hijack), 7600 (radio failure) or 7700 (general
+  emergency) raise a red banner (click to open the flight), get a red ring on the map and a red
+  line on the flight card. Emergencies are never hidden by filters.
+- **Aircraft photo** on the flight card from Planespotters.net, with the photographer credit and a
+  link back (looked up by ICAO24 hex, then by registration; many aircraft have no photo).
+- **Saved flights** (star on the card, **Saved** tool): kept in this browser's localStorage, shown
+  with a gold ring on the map and listed with their route, or "Not in range".
 - **Units** (Settings): aviation (ft, kt, ft/min) or metric (m, km/h, m/s) on the flight card.
 - **Share** on the flight card copies a link (`/?flight=<icao24>`) that opens the map on that flight.
 - **My location** button centres the map on the device position (browser permission required).
@@ -223,6 +230,9 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
   - [RainViewer](https://www.rainviewer.com/api.html) `api.rainviewer.com/public/weather-maps.json`
     plus `tilecache.rainviewer.com` radar tiles (free tiles are limited to zoom 7 and are scaled
     up beyond that). Credit RainViewer.
+- **Aircraft photos**: [Planespotters.net public API](https://www.planespotters.net/photo/api)
+  `api.planespotters.net/pub/photos/{hex|reg}/...`, images from `t.plnspttrs.net`. Photos remain the
+  photographers' property; the card shows the credit and links to the photo page.
   These hosts must be allowed by the Content-Security-Policy (`frontend/public/_headers`,
   `frontend/nginx/security-headers.conf`, `netlify.toml`); the Permissions-Policy allows
   `geolocation=(self)` for the location button.

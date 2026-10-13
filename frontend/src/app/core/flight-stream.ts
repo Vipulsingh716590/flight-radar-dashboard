@@ -3,7 +3,8 @@ import { Auth } from './auth';
 import { RuntimeConfig } from './runtime-config';
 import type { FlightSnapshot } from './flight.models';
 
-export type FeedState = 'connecting' | 'waiting' | 'live' | 'partial' | 'stale' | 'down' | 'offline';
+export type FeedState =
+  'connecting' | 'waiting' | 'live' | 'partial' | 'stale' | 'down' | 'offline';
 
 /** Do not hammer /me when the connection flaps. */
 const SESSION_CHECK_INTERVAL_MS = 10_000;
@@ -42,7 +43,8 @@ export class FlightStream {
     const snapshot = this.snapshot();
     if (!this.connected()) return snapshot ? 'offline' : 'connecting';
     if (!snapshot) return 'connecting';
-    const allDown = snapshot.sources.length > 0 && snapshot.sources.every((s) => s.state === 'down');
+    const allDown =
+      snapshot.sources.length > 0 && snapshot.sources.every((s) => s.state === 'down');
     if (snapshot.updatedAt === null) return allDown ? 'down' : 'waiting';
     if (allDown) return 'down';
     const age = this.ageSeconds() ?? 0;

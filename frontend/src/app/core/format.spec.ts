@@ -34,8 +34,24 @@ describe('flight text helpers', () => {
     airline: 'Air India',
     reg: 'VT-ABC',
     type: 'A320',
-    origin: { code: 'DEL', city: 'New Delhi', name: null, country: 'IN', lat: null, lon: null, inIndia: true },
-    destination: { code: 'BOM', city: 'Mumbai', name: null, country: 'IN', lat: null, lon: null, inIndia: true },
+    origin: {
+      code: 'DEL',
+      city: 'New Delhi',
+      name: null,
+      country: 'IN',
+      lat: null,
+      lon: null,
+      inIndia: true,
+    },
+    destination: {
+      code: 'BOM',
+      city: 'Mumbai',
+      name: null,
+      country: 'IN',
+      lat: null,
+      lon: null,
+      inIndia: true,
+    },
   } as unknown as Flight;
 
   it('builds a route label and an em dash when nothing is known', () => {
