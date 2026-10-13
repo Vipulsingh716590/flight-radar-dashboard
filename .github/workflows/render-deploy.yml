@@ -1,0 +1,33 @@
+# Render's own "deploy on commit" did not fire for this service (no GitHub webhook).
+# This workflow triggers the same deploy through the service's Deploy Hook instead.
+# Setup: Render -> flightradar-api -> Settings -> Deploy Hook -> copy the URL, then
+# GitHub -> repo Settings -> Secrets and variables -> Actions -> New secret
+# named RENDER_DEPLOY_HOOK.
+name: Deploy API to Render
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'render.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK secret is not set - skipping."; exit 0
+          fi
+          curl --fail --silent --show-error -X POST "$HOOK" > /dev/null
+          echo "Render deploy triggered."

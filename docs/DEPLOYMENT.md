@@ -142,8 +142,13 @@ This is the setup that is running. Both services deploy from the same GitHub rep
    `https://<service>.onrender.com/api/health`: it must answer `{"status":"ok"}`.
 
 **Auto-deploy**: the service is set to *Auto-Deploy: On Commit* (`autoDeployTrigger: commit` in
-`render.yaml`), so every push to `main` rebuilds it. Check *Settings -> Build & Deploy* if pushes
-do not trigger a deploy; **Manual Deploy -> Deploy latest commit** always works.
+`render.yaml`), but for a service created from a public repo URL Render may have no GitHub
+webhook, so pushes do not deploy (observed here). The fallback is
+`.github/workflows/render-deploy.yml`: on every push that touches `backend/**` it calls the
+service's **Deploy Hook**. One-time setup: Render -> service -> *Settings -> Deploy Hook* -> copy
+the URL; GitHub -> repo *Settings -> Secrets and variables -> Actions* -> new secret
+`RENDER_DEPLOY_HOOK`. Without the secret the workflow skips quietly.
+**Manual Deploy -> Deploy latest commit** always works too.
 
 **Free plan behaviour**: the service sleeps after ~15 minutes without requests. The background
 poller stops with it (history gaps) and the next request needs 30-60 s to wake it. The free
