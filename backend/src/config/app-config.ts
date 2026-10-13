@@ -18,6 +18,11 @@ export interface AuthConfig {
   adminEmail: string | null;
   adminPassword: string | null;
   adminPasswordHash: string | null;
+  /**
+   * AUTH_DISABLED=true skips sign-in entirely (every request acts as a local
+   * admin). Local development only; refused when NODE_ENV=production.
+   */
+  authDisabled: boolean;
   /** false only for local development (LOGIN_RATE_LIMIT=off); never allowed in production. */
   loginRateLimitEnabled: boolean;
   loginMaxAttempts: number;
@@ -119,6 +124,7 @@ function loadAuthConfig(env: NodeJS.ProcessEnv, production: boolean): AuthConfig
     adminEmail: env.ADMIN_EMAIL?.trim().toLowerCase() || null,
     adminPassword: env.ADMIN_PASSWORD || null,
     adminPasswordHash: env.ADMIN_PASSWORD_HASH?.trim() || null,
+    authDisabled: parseAuthDisabled(env.AUTH_DISABLED, production),
     loginRateLimitEnabled: parseRateLimit(env.LOGIN_RATE_LIMIT, production),
     loginMaxAttempts: num(env.LOGIN_MAX_ATTEMPTS, 5, 1),
     loginWindowMinutes: num(env.LOGIN_WINDOW_MINUTES, 15, 1),
@@ -149,4 +155,18 @@ function parseRateLimit(value: string | undefined, production: boolean): boolean
     return false;
   }
   throw new Error('LOGIN_RATE_LIMIT must be on or off');
+}
+
+/**
+ * `AUTH_DISABLED=true` turns sign-in off for local work. In production it is
+ * refused outright, so a leftover setting can never expose a deployed API.
+ */
+function parseAuthDisabled(value: string | undefined, production: boolean): boolean {
+  const mode = (value ?? 'false').trim().toLowerCase();
+  if (mode === 'false' || mode === 'off' || mode === '' || mode === '0') return false;
+  if (mode === 'true' || mode === 'on' || mode === '1') {
+    if (production) throw new Error('AUTH_DISABLED=true is not allowed when NODE_ENV=production');
+    return true;
+  }
+  throw new Error('AUTH_DISABLED must be true or false');
 }

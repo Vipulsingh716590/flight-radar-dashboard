@@ -135,6 +135,10 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
   the `users` table on start (and updated when `.env` changes); with no registration there are
   no viewer accounts yet.
 - Login is rate limited: 5 failures per IP and 20 per email per 15 min, then HTTP 429.
+- **Local only:** `AUTH_DISABLED=true` in `backend/.env` skips sign-in completely (the header shows
+  "Login off"), and `LOGIN_RATE_LIMIT=off` removes the lockout. Both are refused when
+  `NODE_ENV=production`, so a deployed API can never start with them. Remove the line (or set
+  `false`) and restart the API to bring the login back.
 - Every endpoint except `/api/auth/login`, `/api/auth/logout` and `/api/health` needs the cookie,
   including the SSE stream (which also ends when the session expires).
 - Different sites for frontend and API (Netlify + Render): set `COOKIE_SAMESITE=none` (HTTPS only)

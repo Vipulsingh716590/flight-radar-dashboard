@@ -68,7 +68,7 @@ export class AuthController {
   @Get('me')
   me(@Req() request: AuthenticatedRequest) {
     const { email, role } = request.user!;
-    return { user: { email, role } };
+    return { user: { email, role }, authDisabled: this.config.auth.authDisabled };
   }
 
   private cookieOptions(): CookieOptions {

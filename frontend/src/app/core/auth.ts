@@ -23,14 +23,20 @@ export class Auth {
   private readonly router = inject(Router);
 
   readonly user = signal<SessionUser | null>(null);
+  /** True when the server runs with sign-in switched off (local development). */
+  readonly authDisabled = signal(false);
 
   /** Asks the server whether the cookie is still a valid session. */
   async restore(): Promise<void> {
     try {
-      const { user } = await firstValueFrom(this.http.get<{ user: SessionUser }>('/api/auth/me'));
-      this.user.set(user);
+      const body = await firstValueFrom(
+        this.http.get<{ user: SessionUser; authDisabled?: boolean }>('/api/auth/me'),
+      );
+      this.user.set(body.user);
+      this.authDisabled.set(body.authDisabled === true);
     } catch {
       this.user.set(null);
+      this.authDisabled.set(false);
     }
   }
 

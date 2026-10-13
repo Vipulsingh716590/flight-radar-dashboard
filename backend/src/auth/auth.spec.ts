@@ -243,3 +243,45 @@ describe('AuthGuard', () => {
     expect(await guard.canActivate(context(controller.adminOnly, admin).ctx)).toBe(true);
   });
 });
+
+describe('AuthGuard with sign-in disabled (local development)', () => {
+  const config = loadConfig({ JWT_SECRET: SECRET, AUTH_DISABLED: 'true' });
+  const auth = new AuthService(
+    new InMemoryUserStore([]),
+    new TokenService(SECRET, 3600),
+    new LoginRateLimiter(5, 60_000),
+    new LoginRateLimiter(20, 60_000),
+    'x',
+  );
+  const guard = new AuthGuard(new Reflector(), auth, config);
+
+  class Controller {
+    open() {}
+    @Roles('admin')
+    adminOnly() {}
+  }
+  const controller = new Controller();
+
+  const context = (handler: () => void) => {
+    const request: { cookies: Record<string, string>; user?: { email: string; role: string; exp: number } } = {
+      cookies: {},
+    };
+    const ctx = {
+      getHandler: () => handler,
+      getClass: () => Controller,
+      switchToHttp: () => ({ getRequest: () => request }),
+    } as unknown as ExecutionContext;
+    return { ctx, request };
+  };
+
+  it('lets requests without any cookie through as a local admin', async () => {
+    const { ctx, request } = context(controller.open);
+    expect(await guard.canActivate(ctx)).toBe(true);
+    expect(request.user).toMatchObject({ email: 'local@flightradar.local', role: 'admin' });
+    expect(request.user!.exp).toBeGreaterThan(Date.now() / 1000);
+  });
+
+  it('also satisfies admin-only routes', async () => {
+    expect(await guard.canActivate(context(controller.adminOnly).ctx)).toBe(true);
+  });
+});

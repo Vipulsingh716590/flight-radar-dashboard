@@ -24,6 +24,7 @@ export class Shell implements OnDestroy {
   private readonly selection = inject(FlightSelection);
 
   protected readonly user = this.auth.user;
+  protected readonly authDisabled = this.auth.authDisabled;
   protected readonly links = [
     { path: '/', label: 'Live map', exact: true },
     { path: '/flights', label: 'Flights', exact: false },

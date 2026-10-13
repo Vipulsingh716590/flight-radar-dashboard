@@ -81,6 +81,11 @@ class DatabaseLifecycle implements OnModuleDestroy {
       useFactory: async (config: ReturnType<typeof loadConfig>, users: UserStore) => {
         const { auth } = config;
         const windowMs = auth.loginWindowMinutes * 60_000;
+        if (auth.authDisabled) {
+          new Logger('Auth').warn(
+            'AUTH_DISABLED=true: sign-in is OFF and every request is a local admin. Local development only.',
+          );
+        }
         if (auth.jwtSecretGenerated) {
           new Logger('Auth').warn(
             'JWT_SECRET is not set: using a random secret, so sessions end whenever the server restarts',

@@ -20,7 +20,14 @@
       <i class="dot"></i>{{ feedLabel() }}@if (feedAge(); as age) { · {{ age }} }
     </span>
 
-    @if (user(); as current) {
+    @if (authDisabled()) {
+      <span class="account">
+        <span class="role off" data-testid="auth-off"
+          title="The server runs with AUTH_DISABLED=true: nobody has to sign in. Local development only.">
+          Login off
+        </span>
+      </span>
+    } @else if (user(); as current) {
       <span class="account">
         <span class="who" [title]="current.email">{{ current.email }}</span>
         <span class="role">{{ current.role }}</span>

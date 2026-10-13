@@ -11,3 +11,7 @@ backend-data/
 backend/.dev-postgres/
 .claude/
 *.tsbuildinfo
+
+# Local Netlify folder
+.netlify
+flightradar-netlify.zip

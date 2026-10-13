@@ -427,3 +427,45 @@ describe('flight card route sanity', () => {
     expect(root.querySelector('[data-testid="route-mismatch"]')?.textContent).toContain('callsign may be re-used');
   });
 });
+
+describe('sign-in switched off on the server (local development)', () => {
+  beforeEach(() => {
+    vi.stubGlobal('EventSource', FakeEventSource);
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes, withComponentInputBinding()),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shows "Login off" instead of the account menu and has no Sign out button', async () => {
+    const auth = TestBed.inject(Auth);
+    auth.user.set({ email: 'local@flightradar.local', role: 'admin' });
+    auth.authDisabled.set(true);
+
+    const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/');
+    await fixture.whenStable();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="auth-off"]')?.textContent).toContain('Login off');
+    expect([...root.querySelectorAll('button')].some((b) => b.textContent?.includes('Sign out'))).toBe(false);
+  });
+
+  it('restore() remembers that the server has sign-in off', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const auth = TestBed.inject(Auth);
+    const done = auth.restore();
+    http.expectOne('/api/auth/me').flush({
+      user: { email: 'local@flightradar.local', role: 'admin' },
+      authDisabled: true,
+    });
+    await done;
+    expect(auth.authDisabled()).toBe(true);
+    expect(auth.user()?.role).toBe('admin');
+  });
+});

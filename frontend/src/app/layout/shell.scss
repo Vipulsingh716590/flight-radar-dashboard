@@ -115,6 +115,11 @@
   white-space: nowrap;
 }
 
+.role.off {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
 .role {
   padding: 1px 6px;
   border: 1px solid var(--border);

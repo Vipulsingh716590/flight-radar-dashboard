@@ -1,0 +1,18 @@
+# Netlify honours this file for every kind of deploy (including drag and drop),
+# unlike netlify.toml which manual deploys ignore.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; connect-src 'self' https://*.onrender.com https://tiles.openfreemap.org; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+/index.html
+  Cache-Control: no-cache
+/config.json
+  Cache-Control: no-store
+/chunk-*
+  Cache-Control: public, max-age=31536000, immutable
+/main-*
+  Cache-Control: public, max-age=31536000, immutable
+/styles-*
+  Cache-Control: public, max-age=31536000, immutable
