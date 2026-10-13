@@ -1,16 +1,18 @@
 # Netlify: the Angular dashboard as a static site.
 #
-# Set in Site settings -> Environment variables:
-#   API_BASE_URL = https://<your-api-host>      (e.g. https://flightradar-api.onrender.com)
-# It is written into config.json at build time (frontend/scripts/write-config.mjs).
+# The API address is set below (API_BASE_URL) and written into config.json at build time
+# (frontend/scripts/write-config.mjs). A value in Netlify's UI would override it.
 
 [build]
   base    = "frontend"
-  command = "npm ci && npm run build"
+  command = "npm ci --include=dev && npm run build"
   publish = "dist/frontend/browser"
 
 [build.environment]
   NODE_VERSION = "24"
+  # Public address of the API (Render). Written into config.json at build time, so a
+  # Git deploy needs no variable set in the Netlify UI. Change it if the API moves.
+  API_BASE_URL = "https://flightradar-api.onrender.com"
 
 # Single-page app: every unknown path serves index.html (deep links such as /airports/DEL).
 [[redirects]]
