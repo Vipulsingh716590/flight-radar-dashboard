@@ -1,19 +1,11 @@
 :host {
-  display: flex;
-  flex-direction: column;
+  display: block;
   height: 100%;
-}
-
-.kpi {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
 }
 
 .stage {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
+  height: 100%;
 }
 
 .map {
@@ -21,9 +13,28 @@
   inset: 0;
 }
 
-.flight-card {
+/* Counters float over the map instead of taking a band of their own. */
+.kpi-overlay {
   position: absolute;
   top: 10px;
+  left: 10px;
+  right: 130px;
+  z-index: 2;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  pointer-events: none;
+  scrollbar-width: none;
+
+  > * {
+    pointer-events: auto;
+    display: block;
+    width: max-content;
+  }
+}
+
+.flight-card {
+  position: absolute;
+  top: 86px;
   left: 10px;
   bottom: 10px;
   z-index: 3;
@@ -31,64 +42,88 @@
   align-items: flex-start;
 }
 
-.controls {
+.layers {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+  z-index: 4;
 }
 
-.seg,
-.toggle {
+.layers-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
+  border-radius: 12px;
+  background: var(--overlay);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.layers-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.group-title {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .seg {
   display: flex;
-  align-items: center;
-  gap: 2px;
+  gap: 3px;
   padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  button {
+    flex: 1;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &.on {
+      background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+      color: var(--text);
+    }
+  }
 }
 
-.seg-label {
-  padding: 0 8px;
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-button {
-  padding: 5px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 14px;
   cursor: pointer;
 
-  &.on {
-    background: color-mix(in srgb, var(--accent) 22%, var(--surface));
-    color: var(--text);
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
   }
-
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-}
-
-.toggle {
-  padding: 8px 12px;
 }
 
 .legend {
@@ -100,19 +135,18 @@ button {
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
-  max-width: min(560px, calc(100% - 80px));
+  max-width: min(560px, calc(100% - 150px));
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--overlay);
   font-size: 11px;
-  color: var(--text);
 }
 
 .legend-title {
   color: var(--muted);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .item {
@@ -130,20 +164,23 @@ button {
 
 .in-view {
   position: absolute;
-  right: 10px;
+  right: 56px;
   bottom: 24px;
   z-index: 2;
-  margin-right: 46px;
   padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  background: var(--overlay);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-/* Phone: the flight card becomes a bottom sheet so the plane stays visible. */
-@media (max-width: 700px) {
+/* Phones: the flight card becomes a bottom sheet so the plane stays visible. */
+@media (max-width: 760px) {
+  .kpi-overlay {
+    right: 100px;
+  }
+
   .flight-card {
     top: auto;
     left: 8px;
@@ -156,8 +193,8 @@ button {
     display: none;
   }
 
-  .controls {
-    left: 10px;
-    justify-content: flex-start;
+  .in-view {
+    right: 56px;
+    bottom: 12px;
   }
 }

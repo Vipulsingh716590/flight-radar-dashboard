@@ -1,33 +1,44 @@
-<div class="kpi"><app-kpi-bar /></div>
-
 <div class="stage">
   <app-live-map class="map" />
 
+  <div class="kpi-overlay"><app-kpi-bar /></div>
+
   <app-flight-card class="flight-card" />
 
-  <div class="controls" role="group" aria-label="Map options">
-    <div class="seg" role="group" aria-label="Colour planes by">
-      <span class="seg-label">Colour by</span>
-      @for (mode of modes; track mode.id) {
-        <button
-          type="button"
-          [class.on]="settings.colorBy() === mode.id"
-          [attr.aria-pressed]="settings.colorBy() === mode.id"
-          (click)="settings.colorBy.set(mode.id)"
-        >
-          {{ mode.label }}
-        </button>
-      }
-    </div>
+  <div class="layers">
     <button
       type="button"
-      class="toggle"
-      [class.on]="settings.showAirports()"
-      [attr.aria-pressed]="settings.showAirports()"
-      (click)="toggleAirports()"
+      class="layers-btn"
+      data-testid="layers-button"
+      aria-haspopup="true"
+      [attr.aria-expanded]="layersOpen()"
+      (click)="toggleLayers()"
     >
-      Airports
+      <app-icon name="layers" /> Layers
     </button>
+
+    @if (layersOpen()) {
+      <div class="layers-panel" role="group" aria-label="Map layers" data-testid="layers-panel">
+        <p class="group-title">Colour planes by</p>
+        <div class="seg" role="group" aria-label="Colour planes by">
+          @for (mode of modes; track mode.id) {
+            <button
+              type="button"
+              [class.on]="settings.colorBy() === mode.id"
+              [attr.aria-pressed]="settings.colorBy() === mode.id"
+              (click)="settings.colorBy.set(mode.id)"
+            >
+              {{ mode.label }}
+            </button>
+          }
+        </div>
+
+        <label class="check">
+          <input type="checkbox" [checked]="settings.showAirports()" (change)="toggleAirports()" />
+          <span>Airports</span>
+        </label>
+      </div>
+    }
   </div>
 
   <div class="legend" aria-label="Legend">

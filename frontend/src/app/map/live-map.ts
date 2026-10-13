@@ -24,6 +24,7 @@ import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
 import { MapSettings } from '../core/map-settings';
+import { ThemeService, type Theme } from '../core/theme';
 
 const PLANES = 'planes';
 const PLANES_LAYER = 'planes-layer';
@@ -47,7 +48,16 @@ const TRACK_HOURS = 6;
  * OpenFreeMap vector style: free, no API key, attribution is part of the style.
  * (CARTO's raster tiles now require a key.) Swap the URL to change the basemap.
  */
-const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/dark';
+const BASEMAP_STYLES: Record<Theme, string> = {
+  dark: 'https://tiles.openfreemap.org/styles/dark',
+  light: 'https://tiles.openfreemap.org/styles/positron',
+};
+
+/** Colours that must contrast with the basemap, per theme. */
+const MAP_INK: Record<Theme, { track: string; ring: string; label: string; halo: string; stroke: string }> = {
+  dark: { track: '#ffffff', ring: '#ffffff', label: '#a9c4ff', halo: '#0f1419', stroke: '#0f1419' },
+  light: { track: '#16202a', ring: '#16202a', label: '#1f4fa3', halo: '#ffffff', stroke: '#ffffff' },
+};
 
 const kindIcon = (kind: FlightKind) => `plane-${kind}`;
 const bandIcon = (band: number) => `plane-alt-${band}`;
@@ -70,6 +80,7 @@ export class LiveMap implements OnDestroy {
   private readonly stream = inject(FlightStream);
   private readonly selection = inject(FlightSelection);
   private readonly settings = inject(MapSettings);
+  private readonly themeService = inject(ThemeService);
   private readonly api = inject(Api);
   private readonly router = inject(Router);
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
@@ -83,6 +94,9 @@ export class LiveMap implements OnDestroy {
   private trackPoints: TrackPoint[] = [];
   private trackFor: string | null = null;
   private trackLoadedAt = 0;
+  private pins: AirportPin[] | null = null;
+  private appliedTheme: Theme | null = null;
+  private listenersBound = false;
 
   constructor() {
     afterNextRender(() => this.init());
@@ -94,6 +108,10 @@ export class LiveMap implements OnDestroy {
     effect(() => {
       this.settings.colorBy();
       untracked(() => this.render());
+    });
+    effect(() => {
+      const theme = this.themeService.theme();
+      untracked(() => this.applyTheme(theme));
     });
     effect(() => {
       const visible = this.settings.showAirports();
@@ -112,7 +130,7 @@ export class LiveMap implements OnDestroy {
     setWorkerUrl(new URL('maplibre-gl-worker.mjs', document.baseURI).href);
     const map = new MapLibreMap({
       container: this.container().nativeElement,
-      style: BASEMAP_STYLE,
+      style: BASEMAP_STYLES[this.themeService.theme()],
       center: [81, 22.5],
       zoom: 4,
       minZoom: 3,
@@ -127,7 +145,8 @@ export class LiveMap implements OnDestroy {
 
     // `style.load` (not `load`): `load` waits for every visible basemap tile, which
     // can take a long time on slow links, and the planes do not depend on them.
-    map.once('style.load', () => {
+    // Runs again after every setStyle (theme change), which wipes all custom layers.
+    map.on('style.load', () => {
       try {
         this.setUpLayers(map);
       } catch (error) {
@@ -139,8 +158,13 @@ export class LiveMap implements OnDestroy {
   /** Adds icons, sources and layers once the basemap style is ready. */
   private setUpLayers(map: MapLibreMap): void {
     {
-      for (const kind of KINDS) map.addImage(kindIcon(kind), planeIcon(KIND_COLOR[kind]));
-      ALTITUDE_BANDS.forEach((band, index) => map.addImage(bandIcon(index), planeIcon(band.color)));
+      const ink = MAP_INK[this.themeService.theme()];
+      this.appliedTheme = this.themeService.theme();
+      const ensureImage = (id: string, fill: string) => {
+        if (!map.hasImage(id)) map.addImage(id, planeIcon(fill));
+      };
+      for (const kind of KINDS) ensureImage(kindIcon(kind), KIND_COLOR[kind]);
+      ALTITUDE_BANDS.forEach((band, index) => ensureImage(bandIcon(index), band.color));
 
       const empty = { type: 'FeatureCollection' as const, features: [] };
       map.addSource(AIRPORTS, { type: 'geojson', data: empty });
@@ -153,7 +177,7 @@ export class LiveMap implements OnDestroy {
         type: 'line',
         source: TRACK,
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 2.5, 'line-opacity': 0.85 },
+        paint: { 'line-color': ink.track, 'line-width': 2.5, 'line-opacity': 0.85 },
       });
       map.addLayer({
         id: AIRPORT_DOT_LAYER,
@@ -162,7 +186,7 @@ export class LiveMap implements OnDestroy {
         paint: {
           'circle-radius': ['match', ['get', 'size'], 'large', 5, 'medium', 4, 3],
           'circle-color': '#7fb2ff',
-          'circle-stroke-color': '#0f1419',
+          'circle-stroke-color': ink.stroke,
           'circle-stroke-width': 1.5,
         },
         minzoom: 3.5,
@@ -180,8 +204,8 @@ export class LiveMap implements OnDestroy {
           'text-allow-overlap': false,
         },
         paint: {
-          'text-color': '#a9c4ff',
-          'text-halo-color': '#0f1419',
+          'text-color': ink.label,
+          'text-halo-color': ink.halo,
           'text-halo-width': 1.5,
         },
       };
@@ -204,9 +228,9 @@ export class LiveMap implements OnDestroy {
         filter: ['==', ['get', 'selected'], true],
         paint: {
           'circle-radius': 18,
-          'circle-color': '#ffffff',
+          'circle-color': ink.ring,
           'circle-opacity': 0.12,
-          'circle-stroke-color': '#ffffff',
+          'circle-stroke-color': ink.ring,
           'circle-stroke-width': 2,
         },
       });
@@ -224,20 +248,24 @@ export class LiveMap implements OnDestroy {
         },
       });
 
-      map.on('click', (event) => this.onMapClick(event));
-      const pointer = (on: boolean) => () => (map.getCanvas().style.cursor = on ? 'pointer' : '');
-      for (const layer of [PLANES_LAYER, AIRPORT_DOT_LAYER]) {
-        map.on('mouseenter', layer, pointer(true));
-        map.on('mouseleave', layer, pointer(false));
+      // Map-level listeners survive setStyle; bind them only once.
+      if (!this.listenersBound) {
+        this.listenersBound = true;
+        map.on('click', (event) => this.onMapClick(event));
+        const pointer = (on: boolean) => () => (map.getCanvas().style.cursor = on ? 'pointer' : '');
+        for (const layer of [PLANES_LAYER, AIRPORT_DOT_LAYER]) {
+          map.on('mouseenter', layer, pointer(true));
+          map.on('mouseleave', layer, pointer(false));
+        }
+        map.on('moveend', () => this.updateInView());
       }
-      map.on('moveend', () => this.updateInView());
 
       this.ready = true;
-      void this.loadAirportPins();
+      this.showPins();
       this.applyAirportVisibility(this.settings.showAirports());
       this.render();
       // Re-render every tick: new snapshots are picked up and planes keep moving.
-      this.tickTimer = setInterval(() => this.render(), TICK_MS);
+      this.tickTimer ??= setInterval(() => this.render(), TICK_MS);
       this.onSelectionChanged(this.selection.selectedId());
     }
   }
@@ -342,15 +370,30 @@ export class LiveMap implements OnDestroy {
     );
   }
 
-  private async loadAirportPins(): Promise<void> {
-    const source = this.map?.getSource<GeoJSONSource>(AIRPORTS);
-    if (!source) return;
-    let pins: AirportPin[] = [];
-    try {
-      pins = await this.api.airportPins();
-    } catch {
+  /** Draws the cached airport pins, fetching them the first time. */
+  private showPins(): void {
+    if (this.pins) {
+      this.drawPins(this.pins);
       return;
     }
+    void this.api
+      .airportPins()
+      .then((pins) => {
+        this.pins = pins;
+        this.drawPins(pins);
+      })
+      .catch(() => undefined);
+  }
+
+  private applyTheme(theme: Theme): void {
+    const map = this.map;
+    if (!map || this.appliedTheme === null || this.appliedTheme === theme) return;
+    map.setStyle(BASEMAP_STYLES[theme]);
+  }
+
+  private drawPins(pins: AirportPin[]): void {
+    const source = this.map?.getSource<GeoJSONSource>(AIRPORTS);
+    if (!source) return;
     source.setData({
       type: 'FeatureCollection',
       features: pins.map((pin) => ({

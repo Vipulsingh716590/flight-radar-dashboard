@@ -11,6 +11,7 @@ import { FlightSelection } from './core/flight-selection';
 import { FlightStream } from './core/flight-stream';
 import type { Flight, FlightSnapshot } from './core/flight.models';
 import { MapSettings } from './core/map-settings';
+import { ThemeService } from './core/theme';
 
 /** Minimal EventSource stand-in: jsdom has none, and tests must not hit the network. */
 class FakeEventSource {
@@ -128,15 +129,73 @@ describe('pages and navigation', () => {
   });
 
   describe('shell', () => {
-    it('shows brand, four navigation links and the account, and opens one stream', async () => {
+    it('shows the rail with four pages, the account button, and opens one stream', async () => {
       signIn();
       const { root } = await open('/');
-      expect(root.querySelector('.brand')?.textContent).toContain('Flight Radar India');
-      const links = [...root.querySelectorAll<HTMLAnchorElement>('nav a')].map((a) => a.textContent?.trim());
+      expect(root.querySelector('nav.rail .logo')?.getAttribute('aria-label')).toContain('Flight Radar India');
+      const links = [...root.querySelectorAll<HTMLElement>('nav.rail .item .label')].map((l) => l.textContent?.trim());
       expect(links).toEqual(['Live map', 'Flights', 'Insights', 'Airports']);
-      expect(root.textContent).toContain('admin@example.com');
+      expect(root.querySelector('[data-testid="account-button"]')?.getAttribute('aria-label')).toContain('admin@example.com');
+      expect(root.querySelector('[data-testid="account-menu"]')).toBeNull();
       expect(FlightStreamCount()).toBe(1);
       expect(FakeEventSource.instances[0]?.url).toBe('/api/stream');
+    });
+
+    it('marks the current page in the rail', async () => {
+      signIn();
+      const { root } = await open('/flights');
+      const active = [...root.querySelectorAll<HTMLElement>('nav.rail .item.on .label')].map((l) => l.textContent?.trim());
+      expect(active).toEqual(['Flights']);
+    });
+
+    it('opens the account menu with email and role, and closes it on Escape', async () => {
+      signIn('viewer');
+      const { fixture, root } = await open('/');
+      root.querySelector<HTMLButtonElement>('[data-testid="account-button"]')!.click();
+      await fixture.whenStable();
+
+      const menu = root.querySelector('[data-testid="account-menu"]');
+      expect(menu?.textContent).toContain('admin@example.com');
+      expect(menu?.textContent).toContain('viewer');
+      expect(menu?.textContent).toContain('Sign out');
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      await fixture.whenStable();
+      expect(root.querySelector('[data-testid="account-menu"]')).toBeNull();
+    });
+
+    it('signs out from the account menu and returns to /login', async () => {
+      signIn();
+      const { fixture, router, root, http } = await open('/');
+      root.querySelector<HTMLButtonElement>('[data-testid="account-button"]')!.click();
+      await fixture.whenStable();
+      [...root.querySelectorAll<HTMLButtonElement>('[data-testid="account-menu"] button')]
+        .find((b) => b.textContent?.includes('Sign out'))!
+        .click();
+      await settle(fixture);
+
+      http.expectOne('/api/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+      await settle(fixture);
+      await settle(fixture);
+      expect(router.url).toBe('/login');
+      expect(TestBed.inject(Auth).user()).toBeNull();
+      expect(FakeEventSource.instances[0]?.closed).toBe(true);
+    });
+
+    it('switches between light and dark theme and remembers the choice', async () => {
+      signIn();
+      localStorage.removeItem('fr-theme');
+      const { fixture, root } = await open('/');
+      const theme = TestBed.inject(ThemeService);
+      const before = theme.theme();
+
+      root.querySelector<HTMLButtonElement>('[data-testid="theme-toggle"]')!.click();
+      await fixture.whenStable();
+
+      const after = before === 'dark' ? 'light' : 'dark';
+      expect(theme.theme()).toBe(after);
+      expect(document.documentElement.dataset['theme']).toBe(after);
+      expect(localStorage.getItem('fr-theme')).toBe(after);
     });
 
     it('keeps the same live stream while moving between pages', async () => {
@@ -167,7 +226,12 @@ describe('pages and navigation', () => {
       const { fixture, root } = await open('/');
       expect(root.querySelector('.legend-title')?.textContent).toContain('Route type');
 
-      const altitude = [...root.querySelectorAll<HTMLButtonElement>('.seg button')].find((b) =>
+      // Display options live in the "Layers" popover.
+      expect(root.querySelector('[data-testid="layers-panel"]')).toBeNull();
+      root.querySelector<HTMLButtonElement>('[data-testid="layers-button"]')!.click();
+      await fixture.whenStable();
+
+      const altitude = [...root.querySelectorAll<HTMLButtonElement>('[data-testid="layers-panel"] .seg button')].find((b) =>
         b.textContent?.includes('Altitude'),
       )!;
       altitude.click();

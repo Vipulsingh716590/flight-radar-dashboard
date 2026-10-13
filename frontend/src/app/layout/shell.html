@@ -1,42 +1,86 @@
-<header class="bar">
-  <a class="brand" routerLink="/">Flight Radar India</a>
-
-  <nav class="nav" aria-label="Main">
+<div class="frame">
+  <!-- One <nav>: a left rail on desktop, a bottom tab bar on phones (CSS only). -->
+  <nav class="rail" aria-label="Main">
+    <a class="logo" routerLink="/" aria-label="Flight Radar India, live map">
+      <app-icon name="plane" />
+      <span class="logo-text">Radar<br />India</span>
+    </a>
     @for (link of links; track link.path) {
       <a
+        class="item"
         [routerLink]="link.path"
         routerLinkActive="on"
         [routerLinkActiveOptions]="{ exact: link.exact }"
-        >{{ link.label }}</a
       >
+        <app-icon [name]="link.icon" />
+        <span class="label">{{ link.label }}</span>
+      </a>
     }
   </nav>
 
-  <app-global-search />
+  <div class="column">
+    <header class="top">
+      <app-global-search />
 
-  <div class="right">
-    <span class="feed" [class.ok]="feedOk()" [class.bad]="feedBad()" data-testid="feed-status"
-      [title]="feedSource() ? 'Source: ' + feedSource() : ''">
-      <i class="dot"></i>{{ feedLabel() }}@if (feedAge(); as age) { · {{ age }} }
-    </span>
-
-    @if (authDisabled()) {
-      <span class="account">
-        <span class="role off" data-testid="auth-off"
-          title="The server runs with AUTH_DISABLED=true: nobody has to sign in. Local development only.">
-          Login off
+      <div class="right">
+        <span
+          class="feed"
+          [class.ok]="feedOk()"
+          [class.bad]="feedBad()"
+          data-testid="feed-status"
+          [title]="feedSource() ? 'Source: ' + feedSource() : ''"
+        >
+          <i class="dot"></i><span class="feed-text">{{ feedLabel() }}@if (feedAge(); as age) { · {{ age }} }</span>
         </span>
-      </span>
-    } @else if (user(); as current) {
-      <span class="account">
-        <span class="who" [title]="current.email">{{ current.email }}</span>
-        <span class="role">{{ current.role }}</span>
-        <button type="button" (click)="logout()">Sign out</button>
-      </span>
-    }
-  </div>
-</header>
 
-<main class="page">
-  <router-outlet />
-</main>
+        <button
+          type="button"
+          class="icon-btn"
+          data-testid="theme-toggle"
+          (click)="themeService.toggle()"
+          [attr.aria-label]="themeService.theme() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+          [title]="themeService.theme() === 'dark' ? 'Light theme' : 'Dark theme'"
+        >
+          <app-icon [name]="themeService.theme() === 'dark' ? 'sun' : 'moon'" />
+        </button>
+
+        <div class="account">
+          @if (authDisabled()) {
+            <span class="off" data-testid="auth-off"
+              title="The server runs with AUTH_DISABLED=true: nobody has to sign in. Local development only.">
+              Login off
+            </span>
+          } @else if (user(); as current) {
+            <button
+              type="button"
+              class="avatar"
+              data-testid="account-button"
+              aria-haspopup="menu"
+              [attr.aria-expanded]="menuOpen()"
+              [attr.aria-label]="'Account menu for ' + current.email"
+              (click)="toggleMenu()"
+            >
+              {{ initial() }}
+            </button>
+
+            @if (menuOpen()) {
+              <div class="menu" role="menu" data-testid="account-menu">
+                <div class="who">
+                  <strong [title]="current.email">{{ current.email }}</strong>
+                  <span class="role">{{ current.role }}</span>
+                </div>
+                <button type="button" role="menuitem" class="menu-item" (click)="logout()">
+                  <app-icon name="logout" /> Sign out
+                </button>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <router-outlet />
+    </main>
+  </div>
+</div>

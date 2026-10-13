@@ -8,11 +8,44 @@
   --ok: #3ddc84;
   --warn: #f5a524;
   --bad: #ff5c5c;
+  /* Elevation and map overlay surfaces */
+  --shadow: 0 8px 24px rgb(0 0 0 / 40%);
+  --overlay: color-mix(in srgb, var(--surface) 92%, transparent);
+  --rail-width: 76px;
+  --topbar-height: 56px;
   color-scheme: dark;
+}
+
+/* Light theme: toggled from the header (ThemeService sets data-theme on <html>). */
+:root[data-theme='light'] {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --border: #d4dbe3;
+  --text: #16202a;
+  --muted: #5a6b7b;
+  --accent: #b86e00;
+  --ok: #178a4c;
+  --warn: #a85f00;
+  --bad: #d12f2f;
+  --shadow: 0 8px 24px rgb(20 30 45 / 14%);
+  color-scheme: light;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* Visible keyboard focus everywhere, in both themes. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 html,

@@ -134,8 +134,8 @@ export class Insights implements OnDestroy {
             backgroundColor: airlines.map((a, index) =>
               a.airline === 'Other' ? OTHER_COLOR : AIRLINE_COLORS[index % AIRLINE_COLORS.length],
             ),
-            borderColor: '#182028',
-            borderWidth: 2,
+            borderWidth: 0,
+            spacing: 2,
           },
         ],
       },

@@ -42,6 +42,9 @@ Everything below assumes you have run the project locally once (see the README).
 | `COOKIE_SECURE` | no | Defaults to true in production and when SameSite is `none` |
 | `TRUST_PROXY_HOPS` | no | Reverse proxies in front of the API. Needed for correct client IPs (login rate limit) |
 | `SESSION_HOURS` | no | Default 8 |
+| `AUTH_DISABLED` | no | `true` turns sign-in **off**. Local development only: the API refuses to start with it when `NODE_ENV=production` |
+| `LOGIN_RATE_LIMIT` | no | `off` removes the failed-login lockout. Local only, refused in production |
+| `INDIA_BUFFER_KM` | no | Default 50. If you change it, rebuild `data/india-buffered.geojson` with `node scripts/build-india-area.mjs <km>`, or start-up computes it (needs far more memory) |
 | `LOGIN_MAX_ATTEMPTS`, `LOGIN_WINDOW_MINUTES` | no | Default 5 per 15 min per IP (email limit is 4x) |
 | `POLL_INTERVAL_SECONDS` | no | Minimum 60, default 75 |
 | `RETENTION_DAYS` | no | Snapshot rows older than this are deleted (default 7) |
@@ -116,44 +119,76 @@ default 7 days). Lower `RETENTION_DAYS` on a small disk.
 
 ## B. Netlify (frontend) + Render (API + database)
 
-### 1. Push the repository to GitHub/GitLab
+This is the setup that is running. Both services deploy from the same GitHub repository.
 
-Render and Netlify deploy from a Git repository.
+### 1. Render: API and database (free plans)
 
-### 2. Render: API and database
+1. Push the repository to GitHub.
+2. Open <https://render.com/deploy?repo=https://github.com/OWNER/REPO> (or **New -> Blueprint**).
+   Sign in (GitHub is easiest) and authorise Render for the repository.
+3. The Blueprint (`render.yaml`) creates `flightradar-api` (Docker web service) and
+   `flightradar-db` (PostgreSQL). Render also asks for three values:
 
-1. Render dashboard -> **New -> Blueprint**, choose the repository. It reads `render.yaml`.
-2. Fill the prompted values: `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `FRONTEND_ORIGIN` (you can use a
-   placeholder now and correct it after step 3).
-3. Wait for the deploy and open `https://<service>.onrender.com/api/health`.
+   | Variable | Value | Notes |
+   | --- | --- | --- |
+   | `ADMIN_EMAIL` | your email | **Must look like `name@domain.tld`**, no spaces or quotes |
+   | `ADMIN_PASSWORD` | a long password | **At least 12 characters**; it protects a public site |
+   | `FRONTEND_ORIGIN` | the dashboard's exact origin | e.g. `https://your-site.netlify.app`, no trailing `/` |
 
-`render.yaml` uses Render's **free** plans, which is right for trying the app out. A free web
-service sleeps when idle (the poller stops, so history has gaps until the next request wakes it),
-and a free database is time-limited and deleted after that period. For continuous data change the
-two `plan:` lines to paid plans (check Render's current plan names) and redeploy.
+   If any of these is skipped or wrong the API stops at start-up with a clear `FATAL` line in the
+   logs. Fix it under the service's **Environment** tab and use **Save, rebuild, and deploy**
+   (typing a value is not enough; the button saves it).
+4. The first build takes a few minutes. When the service is **Live**, open
+   `https://<service>.onrender.com/api/health`: it must answer `{"status":"ok"}`.
 
-### 3. Netlify: frontend
+**Auto-deploy**: the service is set to *Auto-Deploy: On Commit* (`autoDeployTrigger: commit` in
+`render.yaml`), so every push to `main` rebuilds it. Check *Settings -> Build & Deploy* if pushes
+do not trigger a deploy; **Manual Deploy -> Deploy latest commit** always works.
 
-1. **Add new site -> Import from Git**, pick the repository. `netlify.toml` supplies the build.
-2. Site settings -> Environment variables: `API_BASE_URL=https://<service>.onrender.com`.
-3. Deploy, then put the final site URL into Render's `FRONTEND_ORIGIN` (exact origin, no trailing
-   slash) and redeploy the API.
-4. If your API host is not `*.onrender.com`, edit `connect-src` in `netlify.toml` (the
-   Content-Security-Policy would otherwise block calls to it).
+**Free plan behaviour**: the service sleeps after ~15 minutes without requests. The background
+poller stops with it (history gaps) and the next request needs 30-60 s to wake it. The free
+database is time-limited by Render. For continuous data change both `plan:` lines in
+`render.yaml` to paid plans.
+
+### 2. Netlify: dashboard
+
+1. **Add new project -> Import from Git**, choose the repository and branch `main`.
+2. Nothing to type: `netlify.toml` supplies the build (base `frontend`, `npm ci --include=dev &&
+   npm run build`, publish `dist/frontend/browser`, Node 24) **and the API address**
+   (`API_BASE_URL`, written into `config.json` during the build). Change that value if your API
+   host differs.
+3. If the site is created as *private* (Netlify's default for new sites in some plans), set
+   **Project configuration -> Access & security -> Visitor access** to public, otherwise every
+   request returns 401 with a Netlify login redirect.
+4. Put the site's final URL into Render's `FRONTEND_ORIGIN` (exact origin) and redeploy the API.
+5. Every push to `main` now rebuilds the dashboard.
+
+**Without Git** (Netlify Drop): build locally and upload the folder.
+
+```bash
+cd frontend
+API_BASE_URL=https://<service>.onrender.com npm run build
+# then drag frontend/dist/frontend/browser (or a zip of its contents) onto the Netlify Deploys page
+```
+
+`_redirects` and `_headers` live in `frontend/public`, so deep links and the security headers
+also work for uploads (`netlify.toml` is ignored by manual deploys).
 
 ### The cross-site cookie caveat (read this)
 
 With two different hosts, the session cookie is a *third-party* cookie from the browser's point of
-view (`COOKIE_SAMESITE=none`). It works in Chrome and Firefox today, but **Safari (and browsers
-with strict privacy settings) block it**, so sign-in appears to succeed and then the dashboard
-bounces back to the login page.
+view (`COOKIE_SAMESITE=none`, set in `render.yaml`). It works in Chrome and Firefox today, but
+**Safari (and browsers with strict privacy settings) block it**, so sign-in appears to succeed and
+the dashboard then bounces back to the login page.
 
-The reliable fix is to put both under one parent domain, e.g. `radar.example.com` (Netlify) and
-`api.example.com` (Render custom domain). They are then the *same site*:
+The reliable fix is one parent domain, e.g. `radar.example.com` (Netlify) and
+`api.example.com` (Render custom domain): they are then the *same site*.
 
 1. Add the custom domains in both dashboards.
-2. `API_BASE_URL=https://api.example.com`, `FRONTEND_ORIGIN=https://radar.example.com`.
-3. Set `COOKIE_SAMESITE=lax` on the API and update `connect-src` in `netlify.toml`.
+2. `API_BASE_URL` in `netlify.toml` -> `https://api.example.com`, `FRONTEND_ORIGIN` ->
+   `https://radar.example.com`.
+3. Set `COOKIE_SAMESITE=lax` on the API and update `connect-src` in `netlify.toml` and
+   `frontend/public/_headers`.
 
 Option A avoids the problem entirely because the browser only talks to one origin.
 
@@ -182,18 +217,29 @@ Option A avoids the problem entirely because the browser only talks to one origi
 | Dashboard loads but stays "Connecting…" | A proxy buffers the stream. nginx and Caddy configs here disable buffering; check any extra proxy |
 | Map is blank | Basemap tiles blocked (CSP `img-src`/`connect-src` must allow `tiles.openfreemap.org`) |
 | 429 on login | Rate limit; wait the `Retry-After` seconds, or see `LOGIN_*` settings |
+| Render build: `npm ci ... Missing: typescript@... from lock file` | Image uses npm 10; the Dockerfiles must use `node:24-alpine` (npm 11) |
+| Render: `Exited with status 1` right after "Starting Nest application" | Read the log lines above it. `FATAL: ... ADMIN_EMAIL is not a valid email address`, `ADMIN_PASSWORD must be at least 12 characters`, or `... is not set` |
+| Render: start-up dies with no message, or "heap out of memory" | Not enough RAM for the host (512 MB). The buffered India area must ship as `data/india-buffered.geojson` |
+| Netlify: every URL answers 401 "Login Redirect" | Site visibility is private; set Visitor access to public |
+| Netlify: login says it cannot reach the server | `config.json` still has `"apiBaseUrl": ""`: the build ran without `API_BASE_URL`; check `/config.json` on the site |
+| Netlify build fails at `ng: not found` | `NODE_ENV=production` made `npm ci` skip dev dependencies; the build uses `npm ci --include=dev` |
+| Netlify: "Account credit usage exceeded" | The Netlify account is out of credits; deploys stay blocked until credits are added |
+| First request to the API takes a minute | Free Render instance was asleep |
 
 ## What was and was not verified
 
-Verified on a development machine **without Docker**:
+**Verified on the live deployment** (Render free plan + Netlify):
 
-- the compiled API starts with `NODE_ENV=production`, applies migrations and serves requests;
-- the production Angular build under the exact security headers (CSP) used by nginx/Netlify:
-  sign-in, live map, airport pins, stream;
-- same-origin mode (proxy) and cross-origin mode (`apiBaseUrl` + CORS + credentials);
-- `40-runtime-config.sh`, the compose and Render YAML, `netlify.toml` and the nginx template
-  parse and behave as intended (`frontend/scripts/serve-prod-like.mjs` reproduces the headers).
+- the backend Docker image builds on Render and the API starts, migrates the database and seeds the
+  admin;
+- sign-in from the Netlify origin (CORS with credentials, `SameSite=none` cookie), the live
+  stream, and the map;
+- start-up memory: the API starts with a 96 MB heap limit locally (it failed above 192 MB before
+  the buffered area was pre-built).
 
-**Not verified:** building the Docker images, `docker compose up`, the nginx container itself,
-Caddy certificate issuance, and the Render/Netlify deploys. Expect to read build logs on the
-first run; the likeliest issues are listed above.
+**Verified locally without Docker**: the production Angular build under the exact security headers
+of nginx/Netlify, same-origin and cross-origin modes, `40-runtime-config.sh`, and the compose /
+Render / Netlify files parse.
+
+**Not verified**: `frontend/Dockerfile` and the nginx container, `docker compose up`, and Caddy
+certificate issuance.

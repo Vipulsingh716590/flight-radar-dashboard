@@ -18,7 +18,8 @@ services:
     dockerContext: ./backend
     plan: free
     healthCheckPath: /api/health
-    autoDeploy: true
+    # Rebuild on every push to the connected branch (Settings -> Build & Deploy).
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production

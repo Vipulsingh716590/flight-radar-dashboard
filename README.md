@@ -2,9 +2,10 @@
 
 Live air-traffic dashboard for India: planes currently airborne over India on a live map.
 
-> **Status: all five phases built.** Live map, routes and tagging, sign-in, PostgreSQL history
-> with charts and airport boards, and container + hosting configuration. See
-> [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for what was and was not verified.
+> **Status: built and deployed.** Live map, routes and tagging, sign-in, PostgreSQL history with
+> charts and airport boards, container + hosting configuration. Running on Render (API,
+> database) and Netlify (dashboard). [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) says what was and was
+> not verified.
 
 ## Pages
 
@@ -16,7 +17,17 @@ Live air-traffic dashboard for India: planes currently airborne over India on a 
 | `/insights` | Charts: traffic by hour, busiest airports, airline share |
 | `/airports`, `/airports/DEL` | Airport search and live arrivals/departures board (bookmarkable) |
 
-Header on every page: navigation, one search box for flights and airports, feed health, account.
+### The app frame
+
+- **Navigation rail** on the left (icon + label); on phones the same navigation becomes a
+  **bottom tab bar**.
+- **Top bar**: one search box for flights and airports, feed health (Live / partial / stale /
+  sources down, with the age of the data), **light/dark theme** switch and the **account menu**
+  (email, role, sign out). Locally with sign-in off it shows a "Login off" tag instead.
+- **Themes**: dark and light. The choice is remembered; without one the system preference decides.
+  The map basemap and the charts follow the theme.
+- The live map is full-bleed: counters float over its top-left, display options live in a
+  **Layers** popover, and the legend sits bottom-left.
 
 Map features worth knowing:
 
@@ -90,10 +101,23 @@ docker compose --profile app --profile tls up -d --build   # public, automatic H
 Two documented setups, with variables, steps, backups and troubleshooting in
 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md):
 
+- **Netlify + Render** (what is running): static dashboard on Netlify, containerised API and
+  PostgreSQL on Render's **free** plans (`render.yaml`, `netlify.toml`). Both rebuild
+  automatically on every push to `main`. Different hosts mean a cross-site session cookie, which
+  Safari blocks; custom domains under one parent domain are the reliable fix.
 - **One server**: Docker Compose, with Caddy for HTTPS. One origin, the simplest security model.
-- **Netlify + Render**: static frontend plus a containerised API and managed PostgreSQL
-  (`render.yaml`, `netlify.toml`). Different hosts mean a cross-site session cookie, which
-  Safari blocks; use custom domains under one parent domain for a reliable setup.
+
+Things learned the hard way, now baked into the repo:
+
+- Images build on **Node 24** (npm 11): the lock files are written by npm 11 and npm 10 rejects
+  them with `Missing: typescript@... from lock file`.
+- A free Render instance has **512 MB RAM and a fraction of a CPU**. Buffering India's border at
+  start-up needed more than 192 MB of heap, so the buffered area is **pre-built**
+  (`backend/data/india-buffered.geojson`, `node backend/scripts/build-india-area.mjs`).
+- The API prints start-up failures in full (`FATAL: the API could not start.`) so a hosted
+  deploy never dies with only "exited with status 1".
+- `ADMIN_EMAIL` must be a real email address and `ADMIN_PASSWORD` at least 12 characters, or the
+  API refuses to start.
 
 Production behaviour worth knowing: the API refuses to start without `JWT_SECRET`, the session
 cookie is `Secure`, the dashboard is served with a strict Content-Security-Policy, and the browser
@@ -190,3 +214,8 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
   not landings: a flight still hours from its destination is included. Hourly averages are only
   as good as the route data available when each cycle ran.
 - `npm run db:dev` is for machines without Docker only. It is not for production.
+- **Free hosting limits**: a free Render service sleeps after ~15 minutes without requests (the
+  poller stops, so history has gaps, and the first request takes 30-60 s); the free database is
+  time-limited by Render. For continuous data use paid plans (`plan:` in `render.yaml`).
+- Netlify and Render are different sites, so the browser stores the session cookie as a
+  third-party cookie (`COOKIE_SAMESITE=none`). Safari and strict privacy settings block that.
