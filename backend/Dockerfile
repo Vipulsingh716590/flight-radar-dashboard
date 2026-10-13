@@ -44,3 +44,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # Cap the V8 heap below the 512 MB of a small host: an out-of-memory then ends with
 # an explicit "heap out of memory" error in the logs instead of a silent kill.
 CMD ["node", "--max-old-space-size=320", "dist/main.js"]
+
+# Deploys are triggered from GitHub Actions (.github/workflows/render-deploy.yml).
