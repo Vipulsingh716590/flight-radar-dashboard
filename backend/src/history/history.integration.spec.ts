@@ -129,6 +129,28 @@ describe.skipIf(!url)('history + stats (PostgreSQL)', () => {
     expect(await stats.track('nosuch', 1)).toEqual([]);
   });
 
+  it('replays recorded cycles as compact frames, airborne aircraft only', async () => {
+    const base = Date.now() - 10 * 3_600_000; // outside the windows used above
+    const t1 = new Date(base);
+    const t2 = new Date(base + 75_000);
+    await history.record(
+      snapshot(t1, [flight('rpl001', { lat: 12, lon: 75, heading: 90, alt: 9000, callsign: 'RPL1' }), flight('rpl002', { onGround: true })]),
+    );
+    await history.record(snapshot(t2, [flight('rpl001', { lat: 12.1, lon: 75.2, heading: 91, alt: 9100, callsign: 'RPL1' })]));
+
+    const range = await stats.replayRange();
+    expect(range.from).not.toBeNull();
+    expect(range.to!).toBeGreaterThanOrEqual(range.from!);
+
+    const replay = await stats.replay(base - 1000, 5);
+    expect(replay.frames.map((frame) => frame.t)).toEqual([t1.getTime(), t2.getTime()]);
+    expect(replay.frames[0]!.f).toHaveLength(1); // the aircraft on the ground is left out
+    expect(replay.frames[0]!.f[0]).toEqual(['rpl001', 12, 75, 90, 9000, 'unknown', 'RPL1', null, null]);
+    expect(replay.frames[1]!.f[0]![1]).toBeCloseTo(12.1);
+    expect(replay.truncated).toBe(false);
+    expect((await stats.replay(base + 10 * 60_000, 5)).frames).toEqual([]);
+  });
+
   it('ranks Indian airports and shares by distinct aircraft', async () => {
     const airports = await stats.topAirports(24, 10);
     expect(airports[0]).toMatchObject({ iata: 'DEL', arrivals: 1, departures: 1, total: 2 });

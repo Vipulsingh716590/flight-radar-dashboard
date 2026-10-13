@@ -19,7 +19,7 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  right: 330px;
+  right: 560px;
   z-index: 2;
   overflow-x: auto;
   padding-bottom: 4px;
@@ -44,6 +44,70 @@
 }
 
 /* ---- tools: Settings / Weather / Filters ----------------------------------------- */
+.replay-chip {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--overlay);
+  backdrop-filter: var(--glass);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+
+  button {
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+}
+
+.replay-clock {
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.scrub {
+  width: 100%;
+  margin: 10px 0;
+  accent-color: var(--accent);
+}
+
+.replay-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.seg.compact {
+  flex: 1;
+
+  button {
+    padding: 6px 4px;
+    font-size: 11px;
+  }
+}
+
+.start {
+  width: 100%;
+  margin-top: 12px;
+}
+
 .emergency-banner {
   position: absolute;
   top: 70px;
@@ -574,6 +638,25 @@
   display: none;
 }
 
+/* Narrower desktops / tablets: icon-only tool buttons keep the row short. */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .kpi-overlay {
+    right: 270px;
+  }
+
+  .tool .tool-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .tool {
+    padding: 10px 12px;
+  }
+}
+
 /* ---- phones ---------------------------------------------------------------------------
    The tools sit in a slim icon rail on the right edge, under the counters, and open as a
    bottom sheet above the tab bar. Nothing floats over the bottom of the map any more, so
@@ -630,9 +713,9 @@
     right: 2px;
   }
 
-  /* Directly under the four tool buttons: 78px + 4 x 44px + 3 x 8px gaps + 8px. */
+  /* Directly under the five tool buttons: 78px + 5 x 44px + 4 x 8px gaps + 8px. */
   .locate {
-    top: 286px;
+    top: 338px;
     right: 8px;
     bottom: auto;
     width: 44px;
@@ -684,7 +767,8 @@
 
   /* An open panel and the card would overlap, so the panel wins. */
   .panel-open .flight-card,
-  .panel-open .in-view {
+  .panel-open .in-view,
+  .panel-open .replay-chip {
     display: none;
   }
 }

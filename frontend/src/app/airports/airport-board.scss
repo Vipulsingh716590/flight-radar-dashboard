@@ -176,3 +176,92 @@ tbody tr {
     background: color-mix(in srgb, var(--accent) 16%, var(--bg));
   }
 }
+
+/* Airport weather (METAR) */
+.wx {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 12px);
+  background: var(--surface);
+}
+
+.wx-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.cat {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ok);
+  color: #04210f;
+  font-size: 12px;
+  font-weight: 800;
+
+  &[data-cat='MVFR'] {
+    background: #4d8dff;
+    color: #fff;
+  }
+
+  &[data-cat='IFR'] {
+    background: var(--bad);
+    color: #fff;
+  }
+
+  &[data-cat='LIFR'] {
+    background: #c23bd3;
+    color: #fff;
+  }
+}
+
+.when {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+
+  div {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+  }
+
+  dt {
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-size: 13px;
+    font-weight: 600;
+  }
+}
+
+.raw {
+  margin: 10px 0 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.src {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}

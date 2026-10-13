@@ -17,13 +17,14 @@ import { ALTITUDE_BANDS, KIND_COLOR, KIND_LABEL, KINDS, type ColorBy } from '../
 import { Icon } from '../core/icon';
 import { MapSettings, type MapView, type Units } from '../core/map-settings';
 import { PwaInstall } from '../core/pwa-install';
+import { Replay, REPLAY_SPEEDS, REPLAY_WINDOWS } from '../core/replay';
 import { Watchlist } from '../core/watchlist';
 import { compass, Weather, weatherText, type Conditions } from '../core/weather';
 import { KpiBar } from '../kpi/kpi-bar';
 import { FlightCard } from '../map/flight-card';
 import { LiveMap } from '../map/live-map';
 
-type Panel = 'settings' | 'weather' | 'filters' | 'saved';
+type Panel = 'settings' | 'weather' | 'filters' | 'saved' | 'replay';
 
 /** Weather is re-read after this long, or when the place moved by more than ~0.5 degrees. */
 const WEATHER_MAX_AGE_MS = 10 * 60_000;
@@ -51,6 +52,9 @@ export class MapPage {
   private readonly weather = inject(Weather);
   protected readonly watchlist = inject(Watchlist);
   protected readonly pwa = inject(PwaInstall);
+  protected readonly replay = inject(Replay);
+  protected readonly replaySpeeds = REPLAY_SPEEDS;
+  protected readonly replayWindows = REPLAY_WINDOWS;
 
   /** Airborne flights squawking 7500 / 7600 / 7700. */
   protected readonly emergencies = computed(() =>
@@ -84,6 +88,7 @@ export class MapPage {
     { id: 'weather', label: 'Weather', icon: 'cloud' },
     { id: 'filters', label: 'Filters', icon: 'filter' },
     { id: 'saved', label: 'Saved', icon: 'star' },
+    { id: 'replay', label: 'Replay', icon: 'history' },
   ];
   protected readonly modes: { id: ColorBy; label: string }[] = [
     { id: 'route', label: 'Route type' },
@@ -160,6 +165,8 @@ export class MapPage {
 
   protected togglePanel(panel: Panel): void {
     this.panel.update((current) => (current === panel ? null : panel));
+    if (this.panel() === 'replay' && !this.replay.active() && !this.replay.range())
+      void this.replay.loadRange();
   }
 
   protected closePanel(): void {
@@ -168,6 +175,36 @@ export class MapPage {
 
   protected toggleAirports(): void {
     this.settings.showAirports.update((on) => !on);
+  }
+
+  protected toggleTrails(): void {
+    this.settings.trails.update((on) => !on);
+  }
+
+  protected replayClock(): string {
+    const t = this.replay.clock();
+    return t
+      ? new Date(t).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      : '';
+  }
+
+  protected replayDay(ms: number | null | undefined): string {
+    return ms
+      ? new Date(ms).toLocaleString([], {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—';
+  }
+
+  protected seekReplay(event: Event): void {
+    this.replay.seek(Number((event.target as HTMLInputElement).value));
   }
 
   protected toggleDayNight(): void {

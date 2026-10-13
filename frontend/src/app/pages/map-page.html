@@ -5,6 +5,13 @@
 
   <app-flight-card class="flight-card" />
 
+  @if (replay.active()) {
+    <div class="replay-chip" role="status" data-testid="replay-chip">
+      <app-icon name="history" /> Replay · {{ replayClock() }}
+      <button type="button" (click)="replay.close()">Live</button>
+    </div>
+  }
+
   @if (emergencies().length > 0) {
     <div class="emergency-banner" role="alert" data-testid="emergency-banner">
       <app-icon name="alert" />
@@ -54,7 +61,9 @@
                 ? 'Weather'
                 : open === 'saved'
                   ? 'Saved flights'
-                  : 'Filters'
+                  : open === 'replay'
+                    ? 'Replay'
+                    : 'Filters'
           }}
         </h2>
         <button type="button" class="sheet-close" aria-label="Close panel" (click)="closePanel()">
@@ -128,6 +137,16 @@
             <label class="check">
               <input
                 type="checkbox"
+                data-testid="trails-toggle"
+                [checked]="settings.trails()"
+                (change)="toggleTrails()"
+              />
+              <span>Short trails behind planes</span>
+            </label>
+
+            <label class="check">
+              <input
+                type="checkbox"
                 data-testid="day-night-toggle"
                 [checked]="settings.dayNight()"
                 (change)="toggleDayNight()"
@@ -142,7 +161,9 @@
                   <button type="button" class="btn-accent small" (click)="pwa.install()">
                     Install Flight Radar India
                   </button>
-                  <p class="hint">Adds it to your home screen and opens it full-screen, like an app.</p>
+                  <p class="hint">
+                    Adds it to your home screen and opens it full-screen, like an app.
+                  </p>
                 } @else {
                   <p class="hint">
                     To install: tap the Share button in Safari, then "Add to Home Screen".
@@ -254,6 +275,96 @@
               <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>
               (radar).
             </p>
+          }
+
+          @case ('replay') {
+            @if (replay.active()) {
+              <div class="replay" data-testid="replay-controls">
+                <div class="replay-clock" data-testid="replay-clock">{{ replayClock() }}</div>
+                <input
+                  type="range"
+                  class="scrub"
+                  aria-label="Replay position"
+                  [min]="replay.start()"
+                  [max]="replay.end()"
+                  step="1000"
+                  [value]="replay.clock()"
+                  (input)="seekReplay($event)"
+                />
+                <div class="replay-row">
+                  <button
+                    type="button"
+                    class="round"
+                    data-testid="replay-play"
+                    [attr.aria-label]="replay.playing() ? 'Pause replay' : 'Play replay'"
+                    (click)="replay.playing() ? replay.pause() : replay.play()"
+                  >
+                    <app-icon [name]="replay.playing() ? 'pause' : 'play'" />
+                  </button>
+                  <div class="seg compact" role="group" aria-label="Replay speed">
+                    @for (s of replaySpeeds; track s) {
+                      <button
+                        type="button"
+                        [class.on]="replay.speed() === s"
+                        [attr.aria-pressed]="replay.speed() === s"
+                        (click)="replay.speed.set(s)"
+                      >
+                        {{ s }} min/s
+                      </button>
+                    }
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="btn-accent small"
+                  data-testid="replay-exit"
+                  (click)="replay.close()"
+                >
+                  Back to live
+                </button>
+                @if (replay.truncated()) {
+                  <p class="hint warn">
+                    The window was cut at the server's row limit; try a shorter one.
+                  </p>
+                }
+                <p class="hint">
+                  Recorded positions, one per poll cycle (about 75 s), smoothed between cycles.
+                  Flight cards still show live data.
+                </p>
+              </div>
+            } @else {
+              <section class="group">
+                <p class="group-title">Window</p>
+                <div class="seg" role="group" aria-label="Replay window">
+                  @for (w of replayWindows; track w) {
+                    <button
+                      type="button"
+                      [class.on]="replay.windowMinutes() === w"
+                      [attr.aria-pressed]="replay.windowMinutes() === w"
+                      (click)="replay.windowMinutes.set(w)"
+                    >
+                      {{ w < 60 ? w + ' min' : w / 60 + ' h' }}
+                    </button>
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="btn-accent small start"
+                  data-testid="replay-start"
+                  [disabled]="replay.loading()"
+                  (click)="replay.open()"
+                >
+                  {{ replay.loading() ? 'Loading…' : 'Start replay' }}
+                </button>
+                @if (replay.error(); as message) {
+                  <p class="hint warn" data-testid="replay-error">{{ message }}</p>
+                }
+                <p class="hint">
+                  Replays the newest recorded traffic. Recorded:
+                  {{ replayDay(replay.range()?.from) }} → {{ replayDay(replay.range()?.to) }}.
+                </p>
+              </section>
+            }
           }
 
           @case ('saved') {

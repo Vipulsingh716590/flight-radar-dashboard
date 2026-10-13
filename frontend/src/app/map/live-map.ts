@@ -26,6 +26,7 @@ import { FlightStream } from '../core/flight-stream';
 import type { Flight, FlightKind } from '../core/flight.models';
 import { ALTITUDE_BANDS, altitudeBand, KIND_COLOR, KINDS } from '../core/format';
 import { MapSettings, type MapView } from '../core/map-settings';
+import { Replay } from '../core/replay';
 import { nightRing } from '../core/solar';
 import { Watchlist } from '../core/watchlist';
 import { Weather } from '../core/weather';
@@ -45,6 +46,10 @@ const BUILDINGS_LAYER = 'buildings-3d';
 const SHADOW_LAYER = 'planes-shadow';
 const WATCH_LAYER = 'watched-ring';
 const NIGHT = 'night';
+const TRAILS = 'trails';
+const TRAILS_LAYER = 'trails-line';
+/** Positions kept per plane for the short tails (about 8 poll cycles, ~10 minutes). */
+const TRAIL_POINTS = 8;
 /** Sun altitudes whose "below" regions are stacked: night, civil and nautical twilight edges. */
 const NIGHT_LEVELS = [0, -6, -12];
 const NIGHT_REFRESH_MS = 60_000;
@@ -153,6 +158,7 @@ export class LiveMap implements OnDestroy {
   private readonly settings = inject(MapSettings);
   private readonly weather = inject(Weather);
   private readonly watchlist = inject(Watchlist);
+  private readonly replay = inject(Replay);
   private readonly themeService = inject(ThemeService);
   private readonly api = inject(Api);
   private readonly router = inject(Router);
@@ -178,6 +184,8 @@ export class LiveMap implements OnDestroy {
   private radarIndex = 0;
   private radarTimer: ReturnType<typeof setInterval> | null = null;
   private lastFlyN = 0;
+  private trailMap = new Map<string, [number, number][]>();
+  private trailStamp: string | null = null;
   private nightTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
@@ -215,6 +223,16 @@ export class LiveMap implements OnDestroy {
       this.settings.hiddenKinds();
       this.settings.hiddenBands();
       this.settings.knownRouteOnly();
+      untracked(() => this.render());
+    });
+    effect(() => {
+      // Replay frames advance this clock; redraw on every step.
+      this.replay.active();
+      this.replay.clock();
+      untracked(() => this.render());
+    });
+    effect(() => {
+      this.settings.trails();
       untracked(() => this.render());
     });
     effect(() => {
@@ -388,6 +406,14 @@ export class LiveMap implements OnDestroy {
           'circle-pitch-alignment': 'map',
         },
       });
+      map.addSource(TRAILS, { type: 'geojson', data: empty });
+      map.addLayer({
+        id: TRAILS_LAYER,
+        type: 'line',
+        source: TRAILS,
+        layout: { 'line-cap': 'round', 'line-join': 'round', visibility: 'none' },
+        paint: { 'line-color': ink.track, 'line-width': 1.6, 'line-opacity': 0.55 },
+      });
       // Saved flights get a gold ring, emergencies a larger red one.
       map.addLayer({
         id: WATCH_LAYER,
@@ -480,6 +506,10 @@ export class LiveMap implements OnDestroy {
   private render(): void {
     const map = this.map;
     if (!map || !this.ready) return;
+    if (this.replay.active()) {
+      this.renderReplay(map);
+      return;
+    }
     const source = map.getSource<GeoJSONSource>(PLANES);
     const snapshot = this.stream.snapshot();
     if (!source || !snapshot) return;
@@ -512,6 +542,7 @@ export class LiveMap implements OnDestroy {
       });
     }
     source.setData({ type: 'FeatureCollection', features });
+    this.drawTrails(map, snapshot.updatedAt);
     this.drawTrack(selectedPosition);
     this.followSelected(selectedId, selectedPosition);
     this.updateInView(features.map((feature) => feature.geometry.coordinates));
@@ -519,6 +550,87 @@ export class LiveMap implements OnDestroy {
     // Refresh the recorded path now and then (new points arrive every poll).
     if (selectedId && Date.now() - this.trackLoadedAt > TRACK_REFRESH_MS)
       void this.loadTrack(selectedId);
+  }
+
+  /** Recorded traffic instead of the live feed; everything else stays as is. */
+  private renderReplay(map: MapLibreMap): void {
+    const source = map.getSource<GeoJSONSource>(PLANES);
+    if (!source) return;
+    const selectedId = this.selection.selectedId();
+    const byAltitude = this.settings.colorBy() === 'altitude';
+    const watched = this.watchlist.ids();
+    const kinds: FlightKind[] = ['arrival', 'departure', 'domestic', 'overflight', 'unknown'];
+    const features = [];
+    for (const item of this.replay.sample()) {
+      const kind = (kinds as string[]).includes(item.kind) ? (item.kind as FlightKind) : 'unknown';
+      const probe = {
+        kind,
+        alt: item.alt,
+        squawk: null,
+        origin: item.origin,
+        destination: item.destination,
+      };
+      if (item.id !== selectedId && !this.settings.passes(probe)) continue;
+      features.push({
+        type: 'Feature' as const,
+        properties: {
+          id: item.id,
+          heading: item.heading ?? 0,
+          band: altitudeBand(item.alt),
+          icon: byAltitude ? bandIcon(altitudeBand(item.alt)) : kindIcon(kind),
+          selected: item.id === selectedId,
+          watched: watched.has(item.id),
+          emergency: false,
+        },
+        geometry: { type: 'Point' as const, coordinates: [item.lon, item.lat] },
+      });
+    }
+    source.setData({ type: 'FeatureCollection', features });
+    this.drawTrack(null);
+    this.drawTrails(map, null);
+    this.updateInView(features.map((feature) => feature.geometry.coordinates));
+  }
+
+  /**
+   * Short tails: the last few reported positions of every airborne plane, taken
+   * from successive snapshots. Kept in memory only (a reload starts them over).
+   */
+  private drawTrails(map: MapLibreMap, stamp: string | null): void {
+    const source = map.getSource<GeoJSONSource>(TRAILS);
+    if (!source) return;
+    const on = this.settings.trails() && !this.replay.active();
+    map.setLayoutProperty(TRAILS_LAYER, 'visibility', on ? 'visible' : 'none');
+    if (!on) return;
+
+    const snapshot = this.stream.snapshot();
+    if (snapshot && stamp !== null && stamp !== this.trailStamp) {
+      this.trailStamp = stamp;
+      const seen = new Set<string>();
+      for (const flight of snapshot.flights) {
+        if (flight.onGround) continue;
+        seen.add(flight.id);
+        const points = this.trailMap.get(flight.id) ?? [];
+        const last = points.at(-1);
+        if (!last || last[0] !== flight.lon || last[1] !== flight.lat)
+          points.push([flight.lon, flight.lat]);
+        if (points.length > TRAIL_POINTS) points.shift();
+        this.trailMap.set(flight.id, points);
+      }
+      for (const id of this.trailMap.keys()) if (!seen.has(id)) this.trailMap.delete(id);
+    }
+
+    const features = [];
+    for (const [id, points] of this.trailMap) {
+      if (points.length < 2) continue;
+      const flight = this.byId.get(id);
+      const head = flight ? project(flight, Date.now()) : points[points.length - 1]!;
+      features.push({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: { type: 'LineString' as const, coordinates: [...points, head] },
+      });
+    }
+    source.setData({ type: 'FeatureCollection', features });
   }
 
   private onMapClick(event: MapMouseEvent): void {

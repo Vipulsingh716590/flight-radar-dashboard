@@ -448,6 +448,74 @@ describe('pages and navigation', () => {
       expect(settings.dayNight()).toBe(true);
     });
 
+    it('loads recorded history and plays it back from the Replay panel', async () => {
+      signIn();
+      const { fixture, root, http } = await open('/');
+      const t0 = Date.parse('2026-10-13T10:00:00Z');
+      const frame = (t: number, lat: number) => ({
+        t,
+        f: [['rpl001', lat, 75, 90, 9000, 'domestic', 'RPL1', null, null]],
+      });
+
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-replay"]')!.click();
+      await fixture.whenStable();
+      http.match('/api/replay/range').forEach((r) => r.flush({ from: t0, to: t0 + 600_000 }));
+      await fixture.whenStable();
+
+      root.querySelector<HTMLButtonElement>('[data-testid="replay-start"]')!.click();
+      await fixture.whenStable();
+      http.match('/api/replay/range').forEach((r) => r.flush({ from: t0, to: t0 + 600_000 }));
+      await fixture.whenStable();
+      const request = http.expectOne((r) => r.url === '/api/replay');
+      expect(request.request.params.get('minutes')).toBe('60');
+      request.flush({
+        from: t0,
+        minutes: 60,
+        truncated: false,
+        frames: [frame(t0, 12), frame(t0 + 75_000, 12.2)],
+      });
+      await fixture.whenStable();
+
+      expect(root.querySelector('[data-testid="replay-chip"]')).not.toBeNull();
+      expect(root.querySelector('[data-testid="replay-controls"]')).not.toBeNull();
+
+      root.querySelector<HTMLButtonElement>('[data-testid="replay-exit"]')!.click();
+      await fixture.whenStable();
+      expect(root.querySelector('[data-testid="replay-chip"]')).toBeNull();
+    });
+
+    it('explains when replay is not available', async () => {
+      signIn();
+      const { fixture, root, http } = await open('/');
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-replay"]')!.click();
+      await fixture.whenStable();
+      http
+        .match('/api/replay/range')
+        .forEach((r) => r.flush(null, { status: 404, statusText: 'Not Found' }));
+      await fixture.whenStable();
+      root.querySelector<HTMLButtonElement>('[data-testid="replay-start"]')!.click();
+      await fixture.whenStable();
+      http
+        .match('/api/replay/range')
+        .forEach((r) => r.flush(null, { status: 404, statusText: 'Not Found' }));
+      await fixture.whenStable();
+      await fixture.whenStable();
+      expect(root.querySelector('[data-testid="replay-error"]')?.textContent).toContain(
+        'not available',
+      );
+    });
+
+    it('toggles short trails from Settings', async () => {
+      signIn();
+      const { fixture, root } = await open('/');
+      const settings = TestBed.inject(MapSettings);
+      root.querySelector<HTMLButtonElement>('[data-testid="tool-settings"]')!.click();
+      await fixture.whenStable();
+      root.querySelector<HTMLInputElement>('[data-testid="trails-toggle"]')!.click();
+      await fixture.whenStable();
+      expect(settings.trails()).toBe(true);
+    });
+
     it('reports how many aircraft are in view', async () => {
       signIn();
       const { fixture, root } = await open('/');
@@ -660,6 +728,27 @@ describe('pages and navigation', () => {
       expect(root.textContent).toContain('AIC470');
       expect(root.textContent).toContain('Mumbai');
       expect(root.textContent).toContain('312');
+    });
+
+    it('shows the decoded METAR for the airport', async () => {
+      signIn();
+      const fetchStub = vi
+        .fn()
+        .mockResolvedValue(
+          new Response('VIDP 131730Z 27008KT 3500 HZ FEW035 27/21 Q1016 NOSIG=', { status: 200 }),
+        );
+      vi.stubGlobal('fetch', fetchStub);
+      const { fixture, root, http } = await open('/airports/DEL');
+      http.expectOne('/api/airports/DEL').flush(BOARD);
+      await settle(fixture);
+      await settle(fixture);
+
+      const text = root.querySelector('[data-testid="metar"]')?.textContent ?? '';
+      expect(String(fetchStub.mock.calls[0]![0])).toContain('metar.vatsim.net/VIDP');
+      expect(root.querySelector('[data-testid="metar-category"]')?.textContent).toContain('IFR');
+      expect(text).toContain('8 kt');
+      expect(text).toContain('1016 hPa');
+      expect(text).toContain('27°C');
     });
 
     it('explains when the board cannot be loaded', async () => {

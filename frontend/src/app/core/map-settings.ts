@@ -22,6 +22,8 @@ export class MapSettings {
   readonly units = signal<Units>('aviation');
   /** Shade the night side of the earth (sun position from the clock). */
   readonly dayNight = signal(false);
+  /** Short tails behind every plane (its last few reported positions). */
+  readonly trails = signal(false);
 
   /** Filters: what is hidden (so "nothing hidden" is the default and needs no state). */
   readonly hiddenKinds = signal<ReadonlySet<FlightKind>>(new Set());
@@ -43,7 +45,9 @@ export class MapSettings {
   /** Ask the map to fly somewhere; `n` makes repeated requests to the same place distinct. */
   readonly flyTo = signal<{ lat: number; lon: number; zoom: number; n: number } | null>(null);
 
-  passes(flight: Flight): boolean {
+  passes(
+    flight: Pick<Flight, 'kind' | 'alt' | 'squawk'> & { origin: unknown; destination: unknown },
+  ): boolean {
     // An emergency is never filtered out.
     if (emergencyOf(flight)) return true;
     if (this.hiddenKinds().has(flight.kind)) return false;

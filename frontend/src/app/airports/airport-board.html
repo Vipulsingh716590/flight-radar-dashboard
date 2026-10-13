@@ -13,7 +13,12 @@
           <li role="option">
             <button type="button" (click)="pick(airport)">
               <strong>{{ code(airport) }}</strong>
-              <span>{{ airport.name }}@if (airport.city) { · {{ airport.city }} }</span>
+              <span
+                >{{ airport.name }}
+                @if (airport.city) {
+                  · {{ airport.city }}
+                }
+              </span>
             </button>
           </li>
         }
@@ -30,14 +35,102 @@
   @if (board(); as current) {
     <header class="airport">
       <h2>{{ current.airport.iata ?? current.airport.icao }}</h2>
-      <p>{{ current.airport.name }}@if (current.airport.city) { · {{ current.airport.city }} }</p>
+      <p>
+        {{ current.airport.name }}
+        @if (current.airport.city) {
+          · {{ current.airport.city }}
+        }
+      </p>
     </header>
 
-    @for (column of [
-      { title: 'Arriving', flights: current.arrivals, other: 'From' },
-      { title: 'Departed', flights: current.departures, other: 'To' }
-    ]; track column.title) {
-      <h3>{{ column.title }} <span class="count">{{ column.flights.length }}</span></h3>
+    <section class="wx" aria-label="Airport weather" data-testid="metar">
+      @if (metar(); as m) {
+        <div class="wx-head">
+          <h3>Weather (METAR)</h3>
+          @if (m.category) {
+            <span class="cat" [attr.data-cat]="m.category" data-testid="metar-category">{{
+              m.category
+            }}</span>
+          }
+          @if (m.observed) {
+            <span class="when">{{ m.observed }}</span>
+          }
+        </div>
+        <dl class="wx-grid">
+          <div>
+            <dt>Wind</dt>
+            <dd>
+              @if (m.windKt === null) {
+                —
+              } @else if (m.windKt === 0) {
+                Calm
+              } @else {
+                {{
+                  m.windDir === 'VRB' ? 'Variable' : compass(+m.windDir!) + ' ' + m.windDir + '°'
+                }}
+                {{ m.windKt }} kt
+                @if (m.gustKt) {
+                  , gusts {{ m.gustKt }}
+                }
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Visibility</dt>
+            <dd>
+              {{
+                m.visibilityM === null
+                  ? '—'
+                  : m.visibilityM >= 10000
+                    ? '10 km or more'
+                    : (m.visibilityM / 1000 | number: '1.0-1') + ' km'
+              }}
+            </dd>
+          </div>
+          <div>
+            <dt>Sky</dt>
+            <dd>{{ describeClouds(m) }}</dd>
+          </div>
+          <div>
+            <dt>Temp / dew point</dt>
+            <dd>
+              {{ m.tempC === null ? '—' : m.tempC + '°C' }} /
+              {{ m.dewC === null ? '—' : m.dewC + '°C' }}
+            </dd>
+          </div>
+          <div>
+            <dt>QNH</dt>
+            <dd>{{ m.qnhHpa === null ? '—' : m.qnhHpa + ' hPa' }}</dd>
+          </div>
+          @if (m.weather.length) {
+            <div>
+              <dt>Weather</dt>
+              <dd>{{ m.weather.join(' ') }}</dd>
+            </div>
+          }
+        </dl>
+        <p class="raw">{{ m.raw }}</p>
+        <p class="src">
+          Decoded from the latest METAR via metar.vatsim.net (NOAA data). For information only, not
+          for flight planning.
+        </p>
+      } @else if (metarState() === 'loading') {
+        <p class="hint">Loading weather…</p>
+      } @else {
+        <p class="hint">No weather report available for this airport.</p>
+      }
+    </section>
+
+    @for (
+      column of [
+        { title: 'Arriving', flights: current.arrivals, other: 'From' },
+        { title: 'Departed', flights: current.departures, other: 'To' },
+      ];
+      track column.title
+    ) {
+      <h3>
+        {{ column.title }} <span class="count">{{ column.flights.length }}</span>
+      </h3>
       @if (column.flights.length === 0) {
         <p class="hint">No known flights right now.</p>
       } @else {
@@ -62,7 +155,9 @@
                   <span class="sub">{{ flight.other?.city ?? '' }}</span>
                 </td>
                 <td class="num">{{ flight.distanceKm | number }}</td>
-                <td class="num">{{ altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) }}</td>
+                <td class="num">
+                  {{ altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) }}
+                </td>
               </tr>
             }
           </tbody>
@@ -70,9 +165,12 @@
       }
     }
     <p class="hint foot">
-      Based on callsign-derived routes of flights currently airborne; flights with an unknown route are not listed.
+      Based on callsign-derived routes of flights currently airborne; flights with an unknown route
+      are not listed.
     </p>
   } @else if (!error()) {
-    <p class="hint">Search for an airport, or click a bar in the Insights tab, to see its live board.</p>
+    <p class="hint">
+      Search for an airport, or click a bar in the Insights tab, to see its live board.
+    </p>
   }
 </section>

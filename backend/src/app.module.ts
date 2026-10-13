@@ -18,6 +18,7 @@ import { AIRPORTS, AirportDirectory } from './flights/airports.js';
 import { FlightsController } from './flights/flights.controller.js';
 import { FlightsService, INDIA_FILTER } from './flights/flights.service.js';
 import { HistoryService } from './history/history.service.js';
+import { ReplayController } from './history/replay.controller.js';
 import { StatsController } from './history/stats.controller.js';
 import { TrackController } from './history/track.controller.js';
 import { StatsService } from './history/stats.service.js';
@@ -49,6 +50,7 @@ class DatabaseLifecycle implements OnModuleDestroy {
     StatsController,
     AirportsController,
     TrackController,
+    ReplayController,
     StreamController,
   ],
   providers: [

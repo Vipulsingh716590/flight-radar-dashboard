@@ -24,6 +24,32 @@ export interface TopAirport {
   total: number;
 }
 
+/** [icao24, lat, lon, heading, altitude m, kind, callsign, origin, destination] */
+export type ReplayAircraft = [
+  string,
+  number,
+  number,
+  number | null,
+  number | null,
+  string,
+  string | null,
+  string | null,
+  string | null,
+];
+
+export interface ReplayFrame {
+  /** Epoch ms of the recorded poll cycle. */
+  t: number;
+  f: ReplayAircraft[];
+}
+
+export interface ReplayData {
+  from: number;
+  minutes: number;
+  truncated: boolean;
+  frames: ReplayFrame[];
+}
+
 export interface AirlineShare {
   airline: string;
   flights: number;
@@ -126,6 +152,17 @@ export class Api {
       }),
     );
     return body.points;
+  }
+
+  replayRange(): Promise<{ from: number | null; to: number | null }> {
+    return firstValueFrom(
+      this.http.get<{ from: number | null; to: number | null }>('/api/replay/range'),
+    );
+  }
+
+  replay(from: number, minutes: number): Promise<ReplayData> {
+    const params = new HttpParams().set('from', from).set('minutes', minutes);
+    return firstValueFrom(this.http.get<ReplayData>('/api/replay', { params }));
   }
 
   airportBoard(code: string): Promise<AirportBoard> {

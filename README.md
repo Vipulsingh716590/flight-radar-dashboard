@@ -60,6 +60,18 @@ Map features worth knowing:
   link back (looked up by ICAO24 hex, then by registration; many aircraft have no photo).
 - **Saved flights** (star on the card, **Saved** tool): kept in this browser's localStorage, shown
   with a gold ring on the map and listed with their route, or "Not in range".
+- **Replay** (tool in the rail): plays back the recorded traffic of the newest 30 min / 1 h / 3 h
+  window from PostgreSQL (`flight_snapshots`, kept `RETENTION_DAYS`). The server sends one compact
+  frame per poll cycle (about 75 s, airborne aircraft only); the browser interpolates between
+  frames, so planes glide at 1, 5 or 15 recorded minutes per second, with a time slider and a
+  "Back to live" button. Gaps longer than 5 minutes (backend down) are not bridged. Needs the
+  backend with the `/api/replay` endpoints; against an older backend the panel says replay is not
+  available.
+- **Airport weather**: each airport board shows the latest METAR, decoded (wind, visibility, sky,
+  temperature, QNH, VFR/MVFR/IFR/LIFR), with the raw text. Source: plain-text METARs from
+  `metar.vatsim.net` (NOAA data; aviationweather.gov blocks browser calls). Information only.
+- **Short trails** (Settings): a thin tail behind every plane from its last ~8 reported positions,
+  kept in memory (a reload starts them over).
 - **Day / night shading** (Settings): the night side of the earth is shaded in three steps (night,
   civil and nautical twilight) from the sun's position, computed in the browser from the clock
   (`frontend/src/app/core/solar.ts`, no data source) and refreshed every minute. Off by default.
@@ -220,6 +232,8 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
 | `GET /api/airports/pins` | Airports with an IATA code (map pins) |
 | `GET /api/flights/:icao24/track?hours=6` | Recorded positions of one aircraft |
 | `GET /api/airports/:code` | Live arrivals/departures board (IATA or ICAO) |
+| `GET /api/replay/range` | First and last recorded poll cycle (epoch ms) |
+| `GET /api/replay?from=<ISO\|ms>&minutes=60` | Recorded traffic as compact frames, one per cycle (max 180 min) |
 | `POST /api/auth/login` | Public. Sets the session cookie |
 | `POST /api/auth/logout` | Public. Clears the cookie |
 | `GET /api/auth/me` | Current user (used by the SPA on load) |
@@ -241,6 +255,9 @@ node -e "require('bcryptjs').hash(process.argv[1],12).then(console.log)" "your-l
   - [RainViewer](https://www.rainviewer.com/api.html) `api.rainviewer.com/public/weather-maps.json`
     plus `tilecache.rainviewer.com` radar tiles (free tiles are limited to zoom 7 and are scaled
     up beyond that). Credit RainViewer.
+- **METAR**: `metar.vatsim.net/<ICAO>` (plain text, CORS enabled), parsed in the browser
+  (`frontend/src/app/core/metar.ts`). An unofficial mirror of NOAA reports: fine for a dashboard,
+  not for flight planning.
 - **Aircraft photos**: [Planespotters.net public API](https://www.planespotters.net/photo/api)
   `api.planespotters.net/pub/photos/{hex|reg}/...`, images from `t.plnspttrs.net`. Photos remain the
   photographers' property; the card shows the credit and links to the photo page.

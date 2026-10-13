@@ -45,6 +45,39 @@ export interface TrackPoint {
 
 export const MAX_WINDOW_HOURS = 168;
 
+/** One replay request covers at most this many minutes (about 150 frames). */
+export const MAX_REPLAY_MINUTES = 180;
+/** Safety cap on rows read for one replay request. */
+const MAX_REPLAY_ROWS = 80_000;
+
+/**
+ * One aircraft in a replay frame, as a positional tuple to keep the payload small:
+ * [icao24, lat, lon, heading, altitude m, kind, callsign, origin, destination]
+ */
+export type ReplayAircraft = [
+  string,
+  number,
+  number,
+  number | null,
+  number | null,
+  string,
+  string | null,
+  string | null,
+  string | null,
+];
+
+export interface ReplayFrame {
+  /** Epoch ms of the poll cycle. */
+  t: number;
+  f: ReplayAircraft[];
+}
+
+export interface ReplayRange {
+  /** Epoch ms of the oldest / newest recorded cycle, or null with no history. */
+  from: number | null;
+  to: number | null;
+}
+
 /** Clamps an untrusted query-string number into [min, max]. */
 export function clampInt(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = Math.trunc(Number(value));
@@ -96,6 +129,49 @@ export class StatsService {
       alt: row['altitude_m'] === null ? null : Number(row['altitude_m']),
       t: new Date(row['observed_at'] as string | Date).getTime(),
     }));
+  }
+
+  async replayRange(): Promise<ReplayRange> {
+    const rows: Record<string, unknown>[] = await this.dataSource.query(
+      'SELECT min(observed_at) AS first, max(observed_at) AS last FROM flight_snapshots',
+    );
+    const toMs = (value: unknown) => (value === null || value === undefined ? null : new Date(value as string | Date).getTime());
+    return { from: toMs(rows[0]?.['first']), to: toMs(rows[0]?.['last']) };
+  }
+
+  /** Airborne aircraft per recorded cycle in [fromMs, fromMs + minutes). */
+  async replay(fromMs: number, minutes: number): Promise<{ from: number; minutes: number; truncated: boolean; frames: ReplayFrame[] }> {
+    const rows: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT icao24, lat, lon, heading, altitude_m, kind, callsign, origin, destination, observed_at
+         FROM flight_snapshots
+        WHERE observed_at >= $1 AND observed_at < $2 AND NOT on_ground
+        ORDER BY observed_at, icao24
+        LIMIT $3`,
+      [new Date(fromMs), new Date(fromMs + minutes * 60_000), MAX_REPLAY_ROWS],
+    );
+
+    const frames: ReplayFrame[] = [];
+    let current: ReplayFrame | null = null;
+    for (const row of rows) {
+      const t = new Date(row['observed_at'] as string | Date).getTime();
+      if (!current || current.t !== t) {
+        current = { t, f: [] };
+        frames.push(current);
+      }
+      const num = (value: unknown) => (value === null || value === undefined ? null : Number(value));
+      current.f.push([
+        String(row['icao24']),
+        Number(row['lat']),
+        Number(row['lon']),
+        num(row['heading']),
+        num(row['altitude_m']),
+        String(row['kind']),
+        (row['callsign'] as string | null) ?? null,
+        (row['origin'] as string | null) ?? null,
+        (row['destination'] as string | null) ?? null,
+      ]);
+    }
+    return { from: fromMs, minutes, truncated: rows.length >= MAX_REPLAY_ROWS, frames };
   }
 
   /** Indian airports only (the join is against the India airports table). */

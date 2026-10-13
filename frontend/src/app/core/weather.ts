@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { parseMetar, type Metar } from './metar';
 
 /**
  * Weather from two free public APIs that need no key and allow browser calls:
@@ -12,6 +13,8 @@ import { Injectable } from '@angular/core';
 const OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
 const RAINVIEWER = 'https://api.rainviewer.com/public/weather-maps.json';
 const TIMEOUT_MS = 8000;
+/** Plain-text METAR (NOAA data) from a CORS-enabled mirror; aviationweather.gov itself blocks browsers. */
+const METAR_URL = 'https://metar.vatsim.net';
 
 export interface Conditions {
   tempC: number;
@@ -70,6 +73,15 @@ export class Weather {
       jetDir: body.hourly?.['wind_direction_250hPa']?.[0] ?? null,
       time: String(c['time']),
     };
+  }
+
+  /** Latest METAR for an ICAO station, or null when there is none. */
+  async metar(icao: string): Promise<Metar | null> {
+    const response = await fetch(`${METAR_URL}/${encodeURIComponent(icao)}`, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return parseMetar(await response.text());
   }
 
   async radarFrames(): Promise<RadarFrames> {
