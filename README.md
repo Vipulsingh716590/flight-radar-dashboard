@@ -96,6 +96,7 @@ backend/              NestJS API: polls ADS-B feeds, filters to India, streams o
 frontend/             Angular + MapLibre GL dashboard
   Dockerfile          web image (nginx, proxies /api)
   nginx/              nginx template, security headers, runtime config writer
+docs/ARCHITECTURE.md  architecture, data flow diagrams, data sources
 docs/DEPLOYMENT.md    deployment guide, variables, troubleshooting
 docker-compose.yml    postgres (+ api, web, caddy with profiles)
 render.yaml           Render Blueprint (API + database)
