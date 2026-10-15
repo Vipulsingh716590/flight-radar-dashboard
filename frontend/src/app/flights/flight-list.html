@@ -27,141 +27,79 @@
       Showing {{ rows().length | number }} of {{ total() | number }} airborne flights ({{
         withRoute() | number
       }}
-      with a known route) · click a row to see it on the map
+      with a known route) · click a row to see it on the map<span class="swipe">
+        · swipe sideways for all columns</span
+      >
     </div>
   </div>
 
-  @if (cards()) {
-    <ul class="scroll cards" aria-label="Flights">
-      @for (flight of rows(); track flight.id) {
-        <li>
-          <button
-            type="button"
-            class="card"
-            [class.selected]="selectedId() === flight.id"
-            (click)="select(flight)"
-          >
-            <span class="card-head">
-              <span class="card-title"
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>
+            <button type="button" (click)="sortBy('callsign')">
+              Flight {{ arrow('callsign') }}
+            </button>
+          </th>
+          <th>
+            <button type="button" (click)="sortBy('airline')">
+              Airline {{ arrow('airline') }}
+            </button>
+          </th>
+          <th>Aircraft</th>
+          <th>
+            <button type="button" (click)="sortBy('route')">Route {{ arrow('route') }}</button>
+          </th>
+          <th class="num">
+            <button type="button" (click)="sortBy('altitude')">
+              Alt (ft) {{ arrow('altitude') }}
+            </button>
+          </th>
+          <th class="num">
+            <button type="button" (click)="sortBy('speed')">
+              Speed (kt) {{ arrow('speed') }}
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (flight of rows(); track flight.id) {
+          <tr [class.selected]="selectedId() === flight.id" (click)="select(flight)">
+            <td>
+              <span class="callsign"
                 ><i class="swatch" [style.--kind]="kindColor[flight.kind]"></i
                 >{{ title(flight) }}</span
               >
-              <span class="pills">
-                @if (flight.type) {
-                  <span class="pill">{{ flight.type }}</span>
-                }
-                @if (flight.reg) {
-                  <span class="pill">{{ flight.reg }}</span>
-                }
-              </span>
-            </span>
-            <span class="card-airline">{{
-              flight.airline ?? (hasRoute(flight) ? kindLabel[flight.kind] : 'Aircraft')
-            }}</span>
-            @if (hasRoute(flight)) {
-              <span class="card-route">
-                <span class="stop">
-                  <span class="iata">{{ flight.origin?.code ?? '?' }}</span>
-                  <span class="city">{{ flight.origin?.city ?? '' }}</span>
-                </span>
-                <span class="line" aria-hidden="true"><i></i><b>✈</b></span>
-                <span class="stop right">
-                  <span class="iata">{{ flight.destination?.code ?? '?' }}</span>
-                  <span class="city">{{ flight.destination?.city ?? '' }}</span>
-                </span>
-              </span>
-            } @else {
-              <span class="card-noroute" data-testid="no-route-note">{{
-                noRouteNote(flight)
+            </td>
+            <td>{{ flight.airline ?? '—' }}</td>
+            <td>
+              <span>{{ flight.type ?? '—' }}</span>
+              <span class="sub">{{ flight.reg ?? '' }}</span>
+            </td>
+            <td>
+              <span>{{ route(flight) }}</span>
+              <span class="sub">{{
+                hasRoute(flight) ? kindLabel[flight.kind] : 'No route data'
               }}</span>
-            }
-            <span class="card-stats">
-              <span>{{
-                altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) + ' ft'
-              }}</span>
-              <span>{{ speedKt(flight) === null ? '—' : speedKt(flight) + ' kt' }}</span>
-              @if (hasRoute(flight)) {
-                <span>{{ kindLabel[flight.kind] }}</span>
-              }
-            </span>
-          </button>
-        </li>
-      } @empty {
-        <li class="empty">
-          {{
-            total() === 0 ? 'Waiting for flight data…' : 'No flights match your search or filters.'
-          }}
-        </li>
-      }
-    </ul>
-  } @else {
-    <div class="scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>
-              <button type="button" (click)="sortBy('callsign')">
-                Flight {{ arrow('callsign') }}
-              </button>
-            </th>
-            <th class="wide">
-              <button type="button" (click)="sortBy('airline')">
-                Airline {{ arrow('airline') }}
-              </button>
-            </th>
-            <th class="wide">Aircraft</th>
-            <th>
-              <button type="button" (click)="sortBy('route')">Route {{ arrow('route') }}</button>
-            </th>
-            <th class="num">
-              <button type="button" (click)="sortBy('altitude')">
-                Alt (ft) {{ arrow('altitude') }}
-              </button>
-            </th>
-            <th class="num">
-              <button type="button" (click)="sortBy('speed')">
-                Speed (kt) {{ arrow('speed') }}
-              </button>
-            </th>
+            </td>
+            <td class="num">
+              {{ altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) }}
+            </td>
+            <td class="num">{{ speedKt(flight) === null ? '—' : speedKt(flight) }}</td>
           </tr>
-        </thead>
-        <tbody>
-          @for (flight of rows(); track flight.id) {
-            <tr [class.selected]="selectedId() === flight.id" (click)="select(flight)">
-              <td>
-                <span class="callsign"
-                  ><i class="swatch" [style.--kind]="kindColor[flight.kind]"></i
-                  >{{ title(flight) }}</span
-                >
-                <span class="sub narrow">{{ flight.airline ?? flight.type ?? '' }}</span>
-              </td>
-              <td class="wide">{{ flight.airline ?? '—' }}</td>
-              <td class="wide">
-                <span>{{ flight.type ?? '—' }}</span>
-                <span class="sub">{{ flight.reg ?? '' }}</span>
-              </td>
-              <td>
-                <span>{{ route(flight) }}</span>
-                <span class="sub">{{ kindLabel[flight.kind] }}</span>
-              </td>
-              <td class="num">
-                {{ altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) }}
-              </td>
-              <td class="num">{{ speedKt(flight) === null ? '—' : speedKt(flight) }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="empty">
-                {{
-                  total() === 0
-                    ? 'Waiting for flight data…'
-                    : 'No flights match your search or filters.'
-                }}
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
+        } @empty {
+          <tr>
+            <td colspan="6" class="empty">
+              {{
+                total() === 0
+                  ? 'Waiting for flight data…'
+                  : 'No flights match your search or filters.'
+              }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 </section>

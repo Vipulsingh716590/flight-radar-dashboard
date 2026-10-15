@@ -33,7 +33,8 @@ Live air-traffic dashboard for India: planes currently airborne over India on a 
   *Follow in 3D* on the flight card is a chase camera that keeps the flight centred and looks along
   its heading (dragging the map stops it). Altitude is shown by band, not metre-accurate.
 - **Phones**: the flight card is a bottom sheet with big origin/destination codes and a
-  progress line; the Flights page shows route cards instead of a table.
+  progress line; the Flights page keeps the same six-column table as the desktop (it scrolls
+  sideways and the flight column stays in view).
 - The live map is full-bleed: counters float over its top-left and the legend sits bottom-left.
   Tools (**Settings**, **Weather**, **Filters**, **Saved**) are buttons at the top right on desktop
   and a slim icon rail on the right edge on phones (under the counters, with My location below it);
