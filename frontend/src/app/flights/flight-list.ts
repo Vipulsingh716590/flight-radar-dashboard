@@ -69,6 +69,8 @@ export class FlightList {
   });
 
   protected readonly total = computed(() => this.airborne().length);
+  /** How many airborne flights have both ends of their route. */
+  protected readonly withRoute = computed(() => this.airborne().filter(hasRoute).length);
 
   protected kindCount(kind: FlightKind): number {
     return this.airborne().filter((flight) => flight.kind === kind).length;
@@ -104,6 +106,12 @@ export class FlightList {
     void this.router.navigate(['/']);
   }
 
+  protected hasRoute = hasRoute;
+  /** Why a card has no route: private/unscheduled flights are not in route databases. */
+  protected noRouteNote = (flight: Flight) =>
+    flight.airline
+      ? 'Route not available for this callsign'
+      : 'Private, cargo or unscheduled flight: no route data';
   protected route = routeLabel;
   protected altitudeFt = (flight: Flight) => feet(flight.alt);
   protected speedKt = (flight: Flight) => knots(flight.speed);
@@ -122,6 +130,15 @@ function compare(a: Flight, b: Flight, key: SortKey): number {
     case 'route':
       return routeLabel(a).localeCompare(routeLabel(b));
     default:
-      return (a.callsign ?? a.id).localeCompare(b.callsign ?? b.id);
+      // Flights whose route is known first: private/unscheduled ones (VT-xxx
+      // registrations) otherwise end up together at the bottom of an A-Z list.
+      return (
+        Number(hasRoute(b)) - Number(hasRoute(a)) ||
+        (a.callsign ?? a.id).localeCompare(b.callsign ?? b.id)
+      );
   }
+}
+
+function hasRoute(flight: Flight): boolean {
+  return flight.origin !== null && flight.destination !== null;
 }

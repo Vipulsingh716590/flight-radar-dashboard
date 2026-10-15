@@ -24,8 +24,10 @@
       }
     </div>
     <div class="summary">
-      Showing {{ rows().length | number }} of {{ total() | number }} airborne flights · click a row
-      to see it on the map
+      Showing {{ rows().length | number }} of {{ total() | number }} airborne flights ({{
+        withRoute() | number
+      }}
+      with a known route) · click a row to see it on the map
     </div>
   </div>
 
@@ -53,24 +55,34 @@
                 }
               </span>
             </span>
-            <span class="card-airline">{{ flight.airline ?? kindLabel[flight.kind] }}</span>
-            <span class="card-route">
-              <span class="stop">
-                <span class="iata">{{ flight.origin?.code ?? '?' }}</span>
-                <span class="city">{{ flight.origin?.city ?? '' }}</span>
+            <span class="card-airline">{{
+              flight.airline ?? (hasRoute(flight) ? kindLabel[flight.kind] : 'Aircraft')
+            }}</span>
+            @if (hasRoute(flight)) {
+              <span class="card-route">
+                <span class="stop">
+                  <span class="iata">{{ flight.origin?.code ?? '?' }}</span>
+                  <span class="city">{{ flight.origin?.city ?? '' }}</span>
+                </span>
+                <span class="line" aria-hidden="true"><i></i><b>✈</b></span>
+                <span class="stop right">
+                  <span class="iata">{{ flight.destination?.code ?? '?' }}</span>
+                  <span class="city">{{ flight.destination?.city ?? '' }}</span>
+                </span>
               </span>
-              <span class="line" aria-hidden="true"><i></i><b>✈</b></span>
-              <span class="stop right">
-                <span class="iata">{{ flight.destination?.code ?? '?' }}</span>
-                <span class="city">{{ flight.destination?.city ?? '' }}</span>
-              </span>
-            </span>
+            } @else {
+              <span class="card-noroute" data-testid="no-route-note">{{
+                noRouteNote(flight)
+              }}</span>
+            }
             <span class="card-stats">
               <span>{{
                 altitudeFt(flight) === null ? '—' : (altitudeFt(flight) | number) + ' ft'
               }}</span>
               <span>{{ speedKt(flight) === null ? '—' : speedKt(flight) + ' kt' }}</span>
-              <span>{{ kindLabel[flight.kind] }}</span>
+              @if (hasRoute(flight)) {
+                <span>{{ kindLabel[flight.kind] }}</span>
+              }
             </span>
           </button>
         </li>

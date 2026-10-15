@@ -681,6 +681,28 @@ describe('pages and navigation', () => {
   });
 
   describe('Flights page (/flights)', () => {
+    it('lists flights with a known route before private / unscheduled ones', async () => {
+      signIn();
+      const { fixture, root } = await open('/flights');
+      const noRoute = {
+        ...SIA317,
+        id: 'aaa111',
+        callsign: 'AAA1',
+        origin: null,
+        destination: null,
+      };
+      TestBed.inject(FlightStream).snapshot.set(snapshotOf([noRoute, SIA317]));
+      await fixture.whenStable();
+      const rows = [...root.querySelectorAll('app-flight-list tbody tr')].map(
+        (r) => r.textContent ?? '',
+      );
+      expect(rows[0]).toContain('SIA317');
+      expect(rows[1]).toContain('AAA1');
+      expect(root.querySelector('app-flight-list .summary')?.textContent).toContain(
+        '1 with a known route',
+      );
+    });
+
     it('renders the flight table with its own URL', async () => {
       signIn();
       const { router, root } = await open('/flights');

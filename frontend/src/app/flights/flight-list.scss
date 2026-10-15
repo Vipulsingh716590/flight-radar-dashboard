@@ -325,3 +325,12 @@ td > span {
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* A flight without route data: say so instead of drawing "? -> ?". */
+.card-noroute {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  color: var(--muted);
+  font-size: 12px;
+}
